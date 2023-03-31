@@ -191,10 +191,10 @@ void loop() {
   smartDelay(940);  //XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
   //SATELLITES DISPLAY//
   M5.Lcd.fillCircle(160, 77, 47, BLACK);
-  M5.Lcd.drawCircle(160, 76, 16, 0x00AF);
-  M5.Lcd.drawCircle(160, 76, 32, 0x00AF);
-  M5.Lcd.drawCircle(160, 76, 48, BLUE);
-  M5.Lcd.drawFastHLine(113, 76, 95, 0x00AF);
+  M5.Lcd.drawCircle(160, 77, 16, 0x00AF);
+  M5.Lcd.drawCircle(160, 77, 32, 0x00AF);
+  M5.Lcd.drawCircle(160, 77, 48, BLUE);
+  M5.Lcd.drawFastHLine(113, 77, 95, 0x00AF);
   M5.Lcd.drawFastVLine(160, 29, 95, 0x00AF);
   M5.Lcd.drawLine(127, 43, 193, 109, 0x00AF);
   M5.Lcd.drawLine(127, 109, 193, 43, 0x00AF);
@@ -453,7 +453,7 @@ void loop() {
   y = (45 * cos(pi - (2 * pi) / 60 * gps.time.second())) + 77;
   x = (45 * sin(pi - (2 * pi) / 60 * gps.time.second())) + 160;
   //M5.Lcd.drawLine(160,76,x,y, RED);
-  M5.Lcd.drawLine(160, 76, x, y, RED);
+  M5.Lcd.drawLine(160, 77, x, y, RED);
   // M5.Lcd.drawPixel(x, y, RED);
 
   //M5.Lcd.drawCircle(x, y, 1, BLACK);
@@ -527,21 +527,21 @@ void loop() {
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("CO :");
     M5.Lcd.setTextColor(RED, BLACK);
-    M5.Lcd.print(CO / 40.95);
+    M5.Lcd.print(CO / 409.5);
   } else if (CO > 3200) {
     M5.Lcd.drawRoundRect(12, 77, 82, 11, 2, ORANGE);
     M5.Lcd.setCursor(16, 79);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("CO :");
     M5.Lcd.setTextColor(ORANGE, BLACK);
-    M5.Lcd.print(CO / 40.95);
+    M5.Lcd.print(CO / 409.5);
   } else {
     M5.Lcd.drawRoundRect(12, 77, 82, 11, 2, 0x00AF);
     M5.Lcd.setCursor(16, 79);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("CO :");
     M5.Lcd.setTextColor(GREEN, BLACK);
-    M5.Lcd.print(CO / 40.95);
+    M5.Lcd.print(CO / 409.5);
   }
   M5.Lcd.fillRoundRect(223, 29, 88, 94, 3, BLACK);
   if (CO > 4000) {
@@ -680,9 +680,9 @@ void loop() {
     M5.Lcd.fillRoundRect(289, 70, 19, 11, 3, ORANGE);
   } else if (EMF > 1500) {
     M5.Lcd.fillRoundRect(289, 80, 19, 11, 3, YELLOW);
-  } else if (EMF > 1000) {
+  } else if (EMF > 1250) {
     M5.Lcd.fillRoundRect(289, 90, 19, 11, 3, GREENYELLOW);
-  } else if (EMF > 600) {
+  } else if (EMF > 1000) {
     M5.Lcd.fillRoundRect(289, 100, 19, 11, 3, GREEN);
   } else if (EMF >= 0) {
     M5.Lcd.fillRoundRect(289, 110, 19, 11, 3, GREEN);
