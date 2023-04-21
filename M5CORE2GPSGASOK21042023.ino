@@ -4,6 +4,7 @@
 #include <Wire.h>
 #include "cactus_io_BME280_I2C.h"
 #include <SD.h>
+#define SD_CS_PIN 4
 BME280_I2C bme(0x76);
 double homeLat = 0.0;
 double homeLon = 0.0;
@@ -25,6 +26,7 @@ int i = 0;
 int j = 0;
 boolean GPSnotReady = false;
 TinyGPSPlus gps;
+//File myFile;
 SoftwareSerial ss(RXPin, TXPin);
 static const int MAX_SATELLITES = 40;
 TinyGPSCustom totalGPGSVMessages(gps, "GPGSV", 1);
@@ -65,23 +67,33 @@ void setup() {
   pinMode(25, INPUT);
   pinMode(26, INPUT);
   ss.begin(GPSBaud);
+if (!SD.begin(SD_CS_PIN)) {
+    Serial.println("Fehler beim Initialisieren der SD-Karte");
+    return;
+  }
+
+  File myFile = SD.open("home_coordinates.txt", FILE_READ);
+  if (myFile) {
+    String line = myFile.readStringUntil('\n');
+    int commaIndex = line.indexOf(",");
+    if (commaIndex != -1) {
+      homeLat = line.substring(0, commaIndex).toDouble();
+      homeLon = line.substring(commaIndex + 1).toDouble();
+    }
+    myFile.close();
+  }
+  else {
+    Serial.println("Error opening file.");
+  }
+
   for (int i = 0; i < 4; ++i) {
     satNumber[i].begin(gps, "GPGSV", 4 + 4 * i);
     elevation[i].begin(gps, "GPGSV", 5 + 4 * i);
     azimuth[i].begin(gps, "GPGSV", 6 + 4 * i);
     snr[i].begin(gps, "GPGSV", 7 + 4 * i);
-
-    File myFile = SD.open("home_coordinates.txt", FILE_READ);
-    if (myFile) {
-      String coordinates = myFile.readStringUntil('\n');
-      int commaIndex = coordinates.indexOf(',');
-      homeLat = coordinates.substring(0, commaIndex).toFloat();
-      homeLon = coordinates.substring(commaIndex + 1).toFloat();
-      myFile.close();
-    } else {
-      Serial.println("Error opening file");
-    }
   }
+
+  
 
   //GRAPHIC
   M5.Lcd.drawRoundRect(0, 0, 320, 240, 8, BLUE);
@@ -126,7 +138,7 @@ void loop() {
   }
   //TOUCH BUTTONS
   M5.update();
-  if (M5.BtnA.wasPressed() == true) {
+  if (M5.BtnA.wasPressed()) {
     //M5.Axp.SetSleep(0);
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);              // HOME POSITION
     static const double homeLat = 51.8610070, homeLon = 8.2893300;  //YOUR HOME POSITION
@@ -141,7 +153,7 @@ void loop() {
     delay(5000);
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
   }
-  if (M5.BtnB.wasPressed() == true) {
+  if (M5.BtnB.wasPressed()) {
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);                         // CURRENT POSITION
     static double homeLat = gps.location.lat(), homeLon = gps.location.lng();  // Speichern der aktuellen Koordinaten
     M5.Lcd.setTextSize(2);
@@ -172,15 +184,15 @@ void loop() {
       myFile.close();
       homeLat = gps.location.lat();
       homeLon = gps.location.lng();
-      M5.Lcd.setCursor(108, 137);
-      M5.Lcd.print("POSITION FIXED");
+      //M5.Lcd.setCursor(108, 137);
+      //M5.Lcd.print("POSITION FIXED");
       delay(2000);
     } else {
       Serial.println("Error opening file");
     }
   }
 
-  if (M5.BtnC.wasPressed() == true) {
+  if (M5.BtnC.wasPressed()) {
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
     static const double homeLat = 78.2355500, homeLon = 15.491380;
     M5.Lcd.setTextSize(2);
@@ -195,16 +207,19 @@ void loop() {
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
   }
 
-  File myFile = SD.open("home_coordinates.txt", FILE_READ);
-  if (myFile) {
-    String line = myFile.readStringUntil('\n');
-    int commaIndex = line.indexOf(",");
-    if (commaIndex != -1) {
-      homeLat = line.substring(0, commaIndex).toDouble();
-      homeLon = line.substring(commaIndex + 1).toDouble();
-    }
-    myFile.close();
+File myFile = SD.open("home_coordinates.txt", FILE_READ);
+if (myFile) {
+  String line = myFile.readStringUntil('\n');
+  int commaIndex = line.indexOf(",");
+  if (commaIndex != -1) {
+    homeLat = line.substring(0, commaIndex).toDouble();
+    homeLon = line.substring(commaIndex + 1).toDouble();
   }
+  myFile.close();
+}
+else {
+  Serial.println("Error opening file.");
+}
   unsigned long distanceToHome =
     (unsigned long)TinyGPSPlus::distanceBetween(
       gps.location.lat(),
