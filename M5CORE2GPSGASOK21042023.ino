@@ -226,6 +226,16 @@ if (myFile) {
     delay(5000);
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
   }
+    File myFile = SD.open("position.txt", FILE_READ);
+if (myFile) {
+  String line = myFile.readStringUntil('\n');
+  int commaIndex = line.indexOf(",");
+  if (commaIndex != -1) {
+    homeLat = line.substring(0, commaIndex).toDouble();
+    homeLon = line.substring(commaIndex+1).toDouble();
+  }
+  myFile.close();
+}
   //XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
   //static const double homeLat = 51.861129, homeLon = 8.289280;  //YOUR HOME POSITION+++++++++++++++++++++++
   //XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
