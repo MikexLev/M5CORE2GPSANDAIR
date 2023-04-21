@@ -5,11 +5,8 @@
 #include "cactus_io_BME280_I2C.h"
 #include <SD.h>
 BME280_I2C bme(0x76);
-
 double homeLat = 0.0;
 double homeLon = 0.0;
-
-
 static const int RXPin = 13, TXPin = 14;
 static const uint32_t GPSBaud = 9600;
 float el = 0;
@@ -44,13 +41,8 @@ struct
   int azimuth;
   int snr;
 } sats[MAX_SATELLITES];
-
 int sensorPin1 = 35;//CO OK
-
-
 int sensorPin2 = 40;//NO2 OK
-
-
 int sensorPin3 = 35;//NH3 OK//int sensorPin3 = 34;//NH3 OK
 int sensorPin4 = 34;//EMF 12
 
@@ -92,17 +84,16 @@ void setup() {
   }
   }
 
-  //GRAPHIC//
+  //GRAPHIC
   M5.Lcd.drawRoundRect(0, 0, 320, 240, 8, BLUE);
   M5.Lcd.drawRoundRect(4, 24, 312, 104, 6, 0x00AF);
   M5.Lcd.drawRoundRect(4, 132, 312, 104, 6, 0x00AF);
   M5.Lcd.drawRoundRect(8, 28, 90, 96, 4, BLUE);
   M5.Lcd.drawRoundRect(222, 28, 90, 96, 4, BLUE);
   M5.Lcd.drawRoundRect(8, 136, 90, 96, 4, BLUE);
-  //GRAPHIC//
 }
 void loop() {
-  //GPS INI//
+  //GPS INI
   printInt(gps.satellites.value(), gps.satellites.isValid(), 5);
   printFloat(gps.hdop.hdop(), gps.hdop.isValid(), 6, 1);
   printFloat(gps.location.lat(), gps.location.isValid(), 11, 6);
@@ -113,7 +104,7 @@ void loop() {
   printFloat(gps.course.deg(), gps.course.isValid(), 7, 2);
   printFloat(gps.speed.kmph(), gps.speed.isValid(), 6, 2);
   printStr(gps.course.isValid() ? TinyGPSPlus::cardinal(gps.course.deg()) : "*** ", 6);
-  /////////////////////////SATELLITE TRACKER////////////////////
+  //SATELLITE TRACKER
   if (ss.available() > 0) {
     gps.encode(ss.read());
     if (totalGPGSVMessages.isUpdated()) {
@@ -134,7 +125,7 @@ void loop() {
         GPSnotReady = ((gps.location.lat() == 0) && (gps.location.lng() == 0));
     }
   }
-  ///TOUCH BUTTONS //
+  //TOUCH BUTTONS
   M5.update();
   if (M5.BtnA.wasPressed() == true) {
     //M5.Axp.SetSleep(0);
@@ -151,28 +142,6 @@ void loop() {
     delay(5000);
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
   }
-  /*if (M5.BtnB.wasPressed() == true) {
-    M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);  // CURRENT POSITION
-    static const double homeLat = (gps.location.lat(), 6), homeLon = (gps.location.lng(), 6);
-    M5.Lcd.setTextSize(2);
-    M5.Lcd.setTextColor(CYAN, BLACK);
-    M5.Lcd.setCursor(108, 137);
-    M5.Lcd.print("POSITION FIXED");
-    M5.Lcd.setCursor(108, 157);
-    M5.Lcd.print("LATT:");
-    M5.Lcd.setTextSize(1);
-    M5.Lcd.print(" \xF7");
-    M5.Lcd.setTextSize(2);
-    M5.Lcd.print(gps.location.lat(), 6);
-    M5.Lcd.setCursor(108, 177);
-    M5.Lcd.print("LONG:");
-    M5.Lcd.setTextSize(1);
-    M5.Lcd.print(" \xF7");
-    M5.Lcd.setTextSize(2);
-    M5.Lcd.print(gps.location.lng(), 6);
-    delay(5000);
-    M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
-  }*/
   if (M5.BtnB.wasPressed() == true) {
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);  // CURRENT POSITION
     static double homeLat = gps.location.lat(), homeLon = gps.location.lng();  // Speichern der aktuellen Koordinaten
@@ -236,9 +205,6 @@ if (myFile) {
   }
   myFile.close();
 }
-  //XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-  //static const double homeLat = 51.861129, homeLon = 8.289280;  //YOUR HOME POSITION+++++++++++++++++++++++
-  //XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
   unsigned long distanceToHome =
     (unsigned long)TinyGPSPlus::distanceBetween(
       gps.location.lat(),
@@ -259,8 +225,8 @@ if (myFile) {
   printInt(gps.sentencesWithFix(), true, 10);
   printInt(gps.failedChecksum(), true, 9);
 
-  smartDelay(940);  //XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-  //SATELLITES DISPLAY//
+  smartDelay(940);
+  //SATELLITES DISPLAY
   M5.Lcd.fillCircle(160, 77, 47, BLACK);
   M5.Lcd.drawCircle(160, 77, 16, 0x00AF);
   M5.Lcd.drawCircle(160, 77, 32, 0x00AF);
@@ -269,7 +235,7 @@ if (myFile) {
   M5.Lcd.drawFastVLine(160, 29, 95, 0x00AF);
   M5.Lcd.drawLine(127, 44, 192, 109, 0x00AF);
   M5.Lcd.drawLine(127, 109, 192, 44, 0x00AF);
-  //SATELITES VISUALISATION//
+  //SATELITES VISUALISATION
   //j = 0;
   if (!GPSnotReady) {
     for (int i = 0; i < MAX_SATELLITES; ++i)
@@ -296,14 +262,6 @@ if (myFile) {
           } else if ((sats[i].snr) > 10) {
             M5.Lcd.drawCircle(x, y, 2, PURPLE);
           }
-
-
-
-
-
-
-
-
           // if ( sats[i].snr > 41)
           //{
           // ( sats[i].snr = 40);
@@ -343,10 +301,7 @@ if (myFile) {
       }
   }
   //smartDelay(10);
-  //XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
   M5.Lcd.fillCircle(53, 184, 34, BLACK);
-
-
   double relCourse = courseToHome - gps.course.deg();
   if (relCourse < 0) {
     relCourse = relCourse + 360;
@@ -375,11 +330,8 @@ if (myFile) {
     M5.Lcd.fillTriangle(53, 184, 53, 218, 48, 190, 0x00AF);  //6
     M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 190, BLUE);    //7
     M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 178, 0x00AF);  //8
-
-
     //M5.Lcd.setTextSize(1);
     //M5.Lcd.setTextColor(BLACK);
-
     //M5.Lcd.setCursor(51, 145);
     //M5.Lcd.print("N");
     //M5.Lcd.setCursor(51, 215);
@@ -425,7 +377,7 @@ if (myFile) {
     r2 = r1 - r;
     M5.Lcd.drawLine(x1, y1, x2, y2, YELLOW);
     M5.Lcd.drawLine(q1, r1, x2, y2, YELLOW);
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
     M5.Lcd.setTextSize(1);
     M5.Lcd.setTextColor(RED, BLACK);
     M5.Lcd.setCursor(51, 141);
@@ -434,9 +386,9 @@ if (myFile) {
     M5.Lcd.print("W");
     M5.Lcd.setCursor(89, 181);
     M5.Lcd.print("E");
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
   }
-  //COORDINATES//
+  //COORDINATES
   if (distanceToHome > 25) {
     M5.Lcd.setCursor(14, 140);
     M5.Lcd.setTextSize(1);
@@ -452,9 +404,7 @@ if (myFile) {
     M5.Lcd.fillRoundRect(13, 140, 32, 12, 1, BLACK);
     M5.Lcd.fillRoundRect(60, 140, 32, 12, 1, BLACK);
   }
-
-  //*
-  //CLOCK FACE//
+  //CLOCK FACE
   for (int i = 0; i < 12; i++) {
     y = (47 * cos(pi - (2 * pi) / 12 * i)) + 77;
     x = (47 * sin(pi - (2 * pi) / 12 * i)) + 160;
@@ -462,19 +412,16 @@ if (myFile) {
     r = (43 * sin(pi - (2 * pi) / 12 * i)) + 160;
     M5.Lcd.drawLine(r, q, x, y, CYAN);
   }
-
   for (int i = 0; i < 60; i++) {
     y = (47 * cos(pi - (2 * pi) / 60 * i)) + 77;
     x = (47 * sin(pi - (2 * pi) / 60 * i)) + 160;
     q = (47 * cos(pi - (2 * pi) / 60 * i)) + 77;
     r = (47 * sin(pi - (2 * pi) / 60 * i)) + 160;
     M5.Lcd.drawLine(r, q, x, y, WHITE);
-  }  //*/
+  }
 
-  //*
-  //ANALOG WATCH//
-  //if (gps.date.month() <= 3)
-  //{
+  //ANALOG WATCH
+  
   y = (32 * cos(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 77;
   x = (32 * sin(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 160;
 
@@ -483,56 +430,18 @@ if (myFile) {
   //******************************************************************************************************************************************
   M5.Lcd.drawLine(r + 2, q + 2, x, y, WHITE);
   M5.Lcd.drawLine(r - 2, q - 2, x, y, WHITE);
-
-  //}
-  //else if (gps.date.month() >= 11)
-  //{
-  // y = (36 * cos(pi - (2 * pi) / 60 * (((gps.time.hour() + 1) * 5) + gps.time.minute() / 12))) + 77;
-  // x = (36 * sin(pi - (2 * pi) / 60 * (((gps.time.hour() + 1) * 5) + gps.time.minute() / 12))) + 160;
-
-
-  //M5.Lcd.drawLine(160, 76, x, y, CYAN);
-  //M5.Lcd.drawLine(162, 78, x, y, CYAN);
-  //M5.Lcd.fillCircle(x, y, 2, CYAN);
-  //M5.Lcd.drawPixel(x, y, WHITE);
-  //}
-  //else
-  //{
-  //y = (36 * cos(pi - (2 * pi) / 60 * (((gps.time.hour() + 2) * 5) + gps.time.minute() / 12))) + 77;
-  //x = (36 * sin(pi - (2 * pi) / 60 * (((gps.time.hour() + 2) * 5) + gps.time.minute() / 12))) + 160;
-
-  //M5.Lcd.drawLine(160, 76, x, y, CYAN);
-  //M5.Lcd.drawLine(162, 78, x, y, CYAN);
-  //M5.Lcd.fillCircle(x, y, 2, CYAN);
-  //M5.Lcd.drawPixel(x, y, WHITE);
-  //}
   y = (42 * cos(pi - (2 * pi) / 60 * gps.time.minute())) + 77;
   x = (42 * sin(pi - (2 * pi) / 60 * gps.time.minute())) + 160;
   q = (2 * cos(pi - (2 * pi) / 60 * gps.time.minute())) + 77;
   r = (2 * sin(pi - (2 * pi) / 60 * gps.time.minute())) + 160;
-
   M5.Lcd.drawLine(r + 1, q + 1, x, y, CYAN);
   M5.Lcd.drawLine(r - 1, q - 1, x, y, CYAN);
-  //M5.Lcd.fillCircle(x, y, 2,  DARKCYAN);
-  //M5.Lcd.drawPixel(x, y, WHITE);
-
-
-  //y = (47 * cos(pi - (2 * pi) / 60 * (gps.time.second() - 1))) + 77;
-  //x = (47 * sin(pi - (2 * pi) / 60 * (gps.time.second() - 1))) + 160;
-  //M5.Lcd.drawLine(160, 76, x, y, BLACK);
-  //M5.Lcd.drawPixel(x, y, BLUE);
   y = (45 * cos(pi - (2 * pi) / 60 * gps.time.second())) + 77;
   x = (45 * sin(pi - (2 * pi) / 60 * gps.time.second())) + 160;
-  //M5.Lcd.drawLine(160,76,x,y, RED);
   M5.Lcd.drawLine(160, 76, x, y, RED);
-  // M5.Lcd.drawPixel(x, y, RED);
-
-  //M5.Lcd.drawCircle(x, y, 1, BLACK);
-  // M5.Lcd.drawPixel(x, y, WHITE);
-  //*/
   M5.Lcd.fillCircle(160, 77, 5, DARKCYAN);
   M5.Lcd.fillCircle(160, 77, 3, BLACK);
-  //BME280 I2C MODULE//
+  //BME280 I2C MODULE
   bme.readSensor();
   M5.Lcd.setTextSize(1);
   M5.Lcd.drawRoundRect(12, 31, 82, 11, 2, 0x00AF);
@@ -579,7 +488,7 @@ if (myFile) {
   M5.Lcd.setTextColor(CYAN, BLACK);
   M5.Lcd.print(bme.getPressure_HP() / 100, 0);
   M5.Lcd.println(" HPa  ");
-  //XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+ 
   int sensorValue1 = (analogRead(sensorPin1));
   int sensorValue2 = (analogRead(sensorPin2));
   int sensorValue3 = (analogRead(sensorPin3));
@@ -590,7 +499,7 @@ if (myFile) {
   float NO2 = (-sensorValue2+ 4095);
   float EMF = (-sensorValue4+ 4095);
 
-  //GAS SENSOR MICS-6814 MODULE ANALOG OUT//
+  //GAS SENSOR MICS-6814 MODULE ANALOG OUT
 
   M5.Lcd.fillRoundRect(13, 78, 80, 9, 2, BLACK);
   if (CO  > 3800) {
@@ -759,8 +668,6 @@ if (myFile) {
   } else if (EMF > 0) {
     M5.Lcd.fillRoundRect(289, 110, 18, 11, 3, GREEN);
   }
-
-  //////////////////////////////////////////////////////////////////////////////////////////
   M5.Lcd.drawRoundRect(225, 110, 21, 11, 2, 0x00AF);
   M5.Lcd.drawRoundRect(246, 110, 21, 11, 2, 0x00AF);
   M5.Lcd.drawRoundRect(267, 110, 21, 11, 2, 0x00AF);
@@ -805,8 +712,8 @@ if (myFile) {
   M5.Lcd.drawRoundRect(246, 30, 21, 11, 2, 0x00AF);
   M5.Lcd.drawRoundRect(267, 30, 21, 11, 2, 0x00AF);
   M5.Lcd.drawRoundRect(288, 30, 21, 11, 2, 0x00AF);
-  //XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-  //BATTERY//
+ 
+  //BATTERY
   float batVoltage = M5.Axp.GetBatVoltage();
   float batPercentage = (batVoltage < 3.20) ? 0 : (batVoltage - 3.20) * 100;
   float ACin = M5.Axp.isACIN();
@@ -838,8 +745,8 @@ if (myFile) {
     M5.Lcd.print(batPercentage, 0);
     M5.Lcd.println("% ");
   }
-  //XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-  //LOAD BATTERY//
+
+  //LOAD BATTERY
   M5.Lcd.drawRoundRect(275, 7, 35, 14, 2, GREENYELLOW);
   M5.Lcd.drawRoundRect(309, 10, 4, 7, 2, GREENYELLOW);
   if (M5.Axp.isACIN()) {
@@ -848,7 +755,7 @@ if (myFile) {
     M5.Lcd.fillTriangle(291, 14, 288, 14, 295, 7, RED);
     M5.Lcd.fillTriangle(296, 13, 291, 13, 289, 20, RED);
   }
-  //GPS//
+  //GPS
   M5.Lcd.setTextSize(2);
   M5.Lcd.setTextColor(DARKCYAN, BLACK);
   M5.Lcd.setCursor(106, 137);
@@ -926,14 +833,14 @@ if (myFile) {
   //M5.Lcd.print("W");
   // M5.Lcd.setCursor(89, 181);
   // M5.Lcd.print("E");
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+ 
   M5.Lcd.setTextSize(1);
   M5.Lcd.setTextColor(RED, BLACK);
   M5.Lcd.setCursor(16, 222);
   if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3) * 60 > 43200) {
     M5.Lcd.fillRect(12, 222, 80, 9, BLACK);
     M5.Lcd.print("      S");
-    //M5.Lcd.print("     "); //***********************************************************************************************************
+    
   } else if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3) * 60 == 1440) {
     M5.Lcd.fillRect(12, 222, 80, 9, BLACK);
     M5.Lcd.setTextColor(YELLOW, BLACK);
@@ -968,7 +875,7 @@ if (myFile) {
     M5.Lcd.print("");
   }
 
-}  //XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXLOOP END
+}  //LOOP END
 static void smartDelay(unsigned long ms) {
   unsigned long start = millis();
   do {
