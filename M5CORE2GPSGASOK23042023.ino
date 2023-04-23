@@ -56,8 +56,6 @@ void setup() {
   M5.begin();
   SD.begin(TFCARD_CS_PIN, SPI, 40000000UL);
   M5.Lcd.fillScreen(BLACK);
-  M5.Lcd.setTextColor(CYAN, BLACK);
-  M5.Lcd.setTextSize(2);
   M5.Axp.SetLed(false);
   bme.begin();
   bme.setTempCal(-1);
@@ -67,9 +65,19 @@ void setup() {
   pinMode(26, INPUT);
   ss.begin(GPSBaud);
   
+  //M5.Lcd.drawPngFile(SD, "/clockbackground.png",115,32);
+  //M5.Lcd.drawPngFile(SD, "/radar1.png",115,32);
+ //M5.Lcd.drawPngFile(SD, "/radar4.png");
+  //M5.Lcd.drawRoundRect(4, 132, 312, 104, 6, 0x00AF);
+  bool pngDrawn = false; // setzen Sie diese Variable auf 'false', um sicherzustellen, dass das PNG noch nicht gezeichnet wurde
+  while (!pngDrawn) { // Schleife, die weiter läuft, bis das Display getippt wird
+    if (M5.Touch.ispressed()) { // Wenn auf dem Display getippt wurde, setze pngDrawn auf 'true'
+      pngDrawn = true;
+    }
+    else { // Sonst zeichne das PNG
+      M5.update();
+      M5.Lcd.drawPngFile(SD, "/radar4.png");
   
-  M5.Lcd.drawRoundRect(4, 132, 312, 104, 6, 0x00AF);
- 
   File myFile = SD.open("/home_coordinates.txt", FILE_READ);
   if (myFile) {
     String line = myFile.readStringUntil('\n');
@@ -84,18 +92,18 @@ void setup() {
     Serial.println("Error OPENING file.");
   }
 M5.Lcd.setTextSize(2);
-    M5.Lcd.setTextColor(CYAN, BLACK);
-    M5.Lcd.setCursor(108, 137);
+    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.setCursor(60, 150);
     M5.Lcd.print("SAVED COORDINATES");
-    M5.Lcd.setCursor(108, 157);
+    M5.Lcd.setCursor(80, 180);
     M5.Lcd.print("LATT: ");
     M5.Lcd.print(homeLat,6);
-    M5.Lcd.setCursor(108, 177);
+    M5.Lcd.setCursor(80, 210);
     M5.Lcd.print("LONG: ");
     M5.Lcd.print(homeLon,6);
-    delay(5000);
-  M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK); 
-  
+    
+  //M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK); 
+  }}
   for (int i = 0; i < 4; ++i) {
     satNumber[i].begin(gps, "GPGSV", 4 + 4 * i);
     elevation[i].begin(gps, "GPGSV", 5 + 4 * i);
@@ -103,6 +111,7 @@ M5.Lcd.setTextSize(2);
     snr[i].begin(gps, "GPGSV", 7 + 4 * i);
   }
 //GRAPHIC
+M5.Lcd.fillScreen(BLACK);
   M5.Lcd.drawRoundRect(0, 0, 320, 240, 8, BLUE);
   M5.Lcd.drawRoundRect(4, 24, 312, 104, 6, 0x00AF);
   M5.Lcd.drawRoundRect(4, 132, 312, 104, 6, 0x00AF);
@@ -244,15 +253,7 @@ void loop() {
   printInt(gps.failedChecksum(), true, 9);
 
   smartDelay(940);
-  //SATELLITES DISPLAY
-  M5.Lcd.fillCircle(160, 77, 47, BLACK);
-  M5.Lcd.drawCircle(160, 77, 16, 0x00AF);
-  M5.Lcd.drawCircle(160, 77, 32, 0x00AF);
-  M5.Lcd.drawCircle(160, 77, 48, BLUE);
-  M5.Lcd.drawFastHLine(113, 77, 95, 0x00AF);
-  M5.Lcd.drawFastVLine(160, 29, 95, 0x00AF);
-  M5.Lcd.drawLine(127, 44, 192, 109, 0x00AF);
-  M5.Lcd.drawLine(127, 109, 192, 44, 0x00AF);
+ 
   //SATELITES VISUALISATION
   if (!GPSnotReady) {
     for (int i = 0; i < MAX_SATELLITES; ++i)
@@ -284,7 +285,6 @@ void loop() {
   }
 
   M5.Lcd.fillCircle(53, 184, 34, BLACK);
-
   double relCourse = courseToHome - gps.course.deg();
   if (relCourse < 0) {
     relCourse = relCourse + 360;
@@ -363,7 +363,19 @@ void loop() {
     M5.Lcd.fillRoundRect(13, 140, 32, 12, 1, BLACK);
     M5.Lcd.fillRoundRect(60, 140, 32, 12, 1, BLACK);
   }
+  
+   //SATELLITES DISPLAY
+  
+  M5.Lcd.fillCircle(160, 77, 47, BLACK);
+  M5.Lcd.drawCircle(160, 77, 16, 0x00AF);
+  M5.Lcd.drawCircle(160, 77, 32, 0x00AF);
+  M5.Lcd.drawCircle(160, 77, 48, BLUE);
+  M5.Lcd.drawFastHLine(113, 77, 95, 0x00AF);
+  M5.Lcd.drawFastVLine(160, 29, 95, 0x00AF);
+  M5.Lcd.drawLine(127, 44, 192, 109, 0x00AF);
+  M5.Lcd.drawLine(127, 109, 192, 44, 0x00AF);
   //CLOCK FACE
+  
   for (int i = 0; i < 12; i++) {
     y = (47 * cos(pi - (2 * pi) / 12 * i)) + 77;
     x = (47 * sin(pi - (2 * pi) / 12 * i)) + 160;
