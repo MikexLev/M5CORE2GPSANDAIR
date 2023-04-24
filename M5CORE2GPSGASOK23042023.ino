@@ -76,7 +76,7 @@ void setup() {
     }
     else { // Sonst zeichne das PNG
       M5.update();
-      M5.Lcd.drawPngFile(SD, "/radar4.png");
+      M5.Lcd.drawPngFile(SD, "/rada4.png",60,10);
   
   File myFile = SD.open("/home_coordinates.txt", FILE_READ);
   if (myFile) {
@@ -173,7 +173,7 @@ void loop() {
   if (M5.BtnA.wasPressed()) {
     //M5.Axp.SetSleep(0);
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);              // HOME POSITION
-    homeLat = 51.861120, homeLon = 8.289310;  //YOUR HOME POSITION
+    //homeLat = 51.861120, homeLon = 8.289310;  //YOUR HOME POSITION
     M5.Lcd.setTextSize(2);
     M5.Lcd.setTextColor(CYAN, BLACK);
     M5.Lcd.setCursor(108, 137);
@@ -184,6 +184,18 @@ void loop() {
     M5.Lcd.print("LONG: 8.289310");
     delay(2000);
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
+   File myFile = SD.open("/home_coordinates.txt", FILE_WRITE);
+    if (myFile) {
+      myFile.print(51.861120);
+      myFile.print(",");
+      myFile.println(8.289310);
+      myFile.close();
+      homeLat = 51.861120;
+      homeLon = 8.289310;
+    } 
+    else {
+      Serial.println("ERROR WRITE FILE");
+    }
   }
   if (M5.BtnB.wasPressed()) {
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);                         // CURRENT POSITION
@@ -224,7 +236,7 @@ void loop() {
 
   if (M5.BtnC.wasPressed()) {
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
-    homeLat = 78.235680, homeLon = 15.491320;
+    //homeLat = 78.235680, homeLon = 15.491320;
     M5.Lcd.setTextSize(2);
     M5.Lcd.setTextColor(CYAN, BLACK);
     M5.Lcd.setCursor(108, 137);
@@ -235,6 +247,18 @@ void loop() {
     M5.Lcd.print("LONG: 15.491320");
     delay(2000);
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
+  File myFile = SD.open("/home_coordinates.txt", FILE_WRITE);
+    if (myFile) {
+      myFile.print(78.235680);
+      myFile.print(",");
+      myFile.println(15.491320);
+      myFile.close();
+      homeLat = 78.235680;
+      homeLon = 15.491320;
+    } 
+    else {
+      Serial.println("ERROR WRITE FILE");
+    }
   }
   unsigned long distanceToHome =
     (unsigned long)TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),homeLat,homeLon);  // 1000;
@@ -253,7 +277,7 @@ void loop() {
   printInt(gps.failedChecksum(), true, 9);
 
   smartDelay(940);
- 
+ M5.Lcd.fillCircle(160, 77, 47, BLACK);
   //SATELITES VISUALISATION
   if (!GPSnotReady) {
     for (int i = 0; i < MAX_SATELLITES; ++i)
@@ -366,7 +390,7 @@ void loop() {
   
    //SATELLITES DISPLAY
   
-  M5.Lcd.fillCircle(160, 77, 47, BLACK);
+  //M5.Lcd.fillCircle(160, 77, 47, BLACK);
   M5.Lcd.drawCircle(160, 77, 16, 0x00AF);
   M5.Lcd.drawCircle(160, 77, 32, 0x00AF);
   M5.Lcd.drawCircle(160, 77, 48, BLUE);
