@@ -17,8 +17,8 @@ float az_r = 0;
 float e = 0;
 const float rad_fac = 0.017453292;
 const float pi = 3.1415926536;
-const float max_volts = 100;//%
-const float max_analog_steps = 4095;
+//const float max_volts = 100;//%
+//const float max_analog_steps = 4095;
 int seconds = 0;
 int x = 0;
 int y = 0;
@@ -525,21 +525,21 @@ void loop() {
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("CO :");
     M5.Lcd.setTextColor(RED, BLACK);
-    M5.Lcd.print((CO * (max_volts / max_analog_steps)));
+    M5.Lcd.print((CO * (1000 / 4095)));
   } else if (CO > 3200) {
     M5.Lcd.drawRoundRect(12, 77, 82, 11, 2, ORANGE);
     M5.Lcd.setCursor(16, 79);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("CO :");
     M5.Lcd.setTextColor(ORANGE, BLACK);
-    M5.Lcd.print((CO * (max_volts / max_analog_steps)));
+    M5.Lcd.print((CO * (1000 / 4095)));
   } else {
     M5.Lcd.drawRoundRect(12, 77, 82, 11, 2, 0x00AF);
     M5.Lcd.setCursor(16, 79);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("CO :");
     M5.Lcd.setTextColor(GREEN, BLACK);
-    M5.Lcd.print((CO * (max_volts / max_analog_steps)));
+    M5.Lcd.print((CO * (1000 / 4095)));
   }
   M5.Lcd.fillRoundRect(223, 29, 88, 94, 3, BLACK);
   if (CO > 4000) {
@@ -567,21 +567,21 @@ void loop() {
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("NH3:");
     M5.Lcd.setTextColor(RED, BLACK);
-    M5.Lcd.print((NH3 * (max_volts / max_analog_steps)));
+    M5.Lcd.print((NH3 * (500 / 4095)));
   } else if (NH3 > 2000) {
     M5.Lcd.drawRoundRect(12, 88, 82, 11, 2, ORANGE);
     M5.Lcd.setCursor(16, 90);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("NH3:");
     M5.Lcd.setTextColor(ORANGE, BLACK);
-    M5.Lcd.print((NH3 * (max_volts / max_analog_steps)));
+    M5.Lcd.print((NH3 * (500 / 4095)));
   } else {
     M5.Lcd.drawRoundRect(12, 88, 82, 11, 2, 0x00AF);
     M5.Lcd.setCursor(16, 90);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("NH3:");
     M5.Lcd.setTextColor(GREENYELLOW, BLACK);
-    M5.Lcd.print((NH3 * (max_volts / max_analog_steps)));
+    M5.Lcd.print((NH3 * (500 / 4095)));
   }
   if (NH3 > 4000) {
     M5.Lcd.fillRoundRect(247, 30, 19, 11, 3, RED);
@@ -608,23 +608,23 @@ void loop() {
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("NO2:");
     M5.Lcd.setTextColor(RED, BLACK);
-    M5.Lcd.print((NO2 * (max_volts / max_analog_steps)));
+    M5.Lcd.print((NO2 * (10 / 4095)));
   } else if (NO2 > 2000) {
     M5.Lcd.drawRoundRect(12, 99, 82, 11, 2, ORANGE);
     M5.Lcd.setCursor(16, 101);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("NO2:");
     M5.Lcd.setTextColor(ORANGE, BLACK);
-    M5.Lcd.print((NO2 * (max_volts / max_analog_steps)));
+    M5.Lcd.print((NO2 * (10 / 4095)));
   } else {
     M5.Lcd.drawRoundRect(12, 99, 82, 11, 2, 0x00AF);
     M5.Lcd.setCursor(16, 101);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("NO2:");
     M5.Lcd.setTextColor(YELLOW, BLACK);
-    M5.Lcd.print((NO2 * (max_volts / max_analog_steps)));
+    M5.Lcd.print((NO2 * (10 / 4095)));
   }
-  if (NH3 > 4000) {
+  if (NO2 > 4000) {
     M5.Lcd.fillRoundRect(268, 30, 19, 11, 3, RED);
   } else if (NO2 > 3500) {
     M5.Lcd.fillRoundRect(268, 40, 19, 11, 3, RED);
@@ -649,21 +649,21 @@ void loop() {
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("EMF:");
     M5.Lcd.setTextColor(RED, BLACK);
-    M5.Lcd.print((EMF * (max_volts / max_analog_steps)));
+    M5.Lcd.print((EMF * (100 / 4095)));
   } else if (EMF > 2000) {
     M5.Lcd.drawRoundRect(12, 110, 82, 11, 2, ORANGE);
     M5.Lcd.setCursor(16, 112);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("EMF:");
     M5.Lcd.setTextColor(ORANGE, BLACK);
-    M5.Lcd.print((EMF * (max_volts / max_analog_steps)));
+    M5.Lcd.print((EMF * (100 / 4095)));
   } else {
     M5.Lcd.drawRoundRect(12, 110, 82, 11, 2, 0x00AF);
     M5.Lcd.setCursor(16, 112);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("EMF:");
     M5.Lcd.setTextColor(ORANGE, BLACK);
-    M5.Lcd.print((EMF * (max_volts / max_analog_steps)));
+    M5.Lcd.print((EMF * (100 / 4095)));
   }
   if (EMF > 4000) {
     M5.Lcd.fillRoundRect(289, 30, 18, 11, 3, RED);
