@@ -4,7 +4,7 @@
 #include <Wire.h>
 #include "cactus_io_BME280_I2C.h"
 
-BME280_I2C bme(0x76);  //PA_SDA 32,PA_SCL 33
+BME280_I2C bme(0x76);  //i2C PA_SDA 32,PA_SCL 33
 TinyGPSPlus gps;
 double homeLat = 0.0;
 double homeLon = 0.0;
@@ -17,7 +17,7 @@ float az_r = 0;
 float e = 0;
 const float rad_fac = 0.017453292;
 const float pi = 3.1415926536;
-const float max_volts = 5.0;
+const float max_volts = 100;//%
 const float max_analog_steps = 4095;
 int seconds = 0;
 int x = 0;
@@ -47,10 +47,10 @@ int sensorPin1 = 35;  //CO 35
 int sensorPin2 = 36;  //NH3 36
 int sensorPin3 = 26;  //NO2 26
 int sensorPin4 = 34;  //EMF 34
-//int sensorValue1 = 0;
-//int sensorValue2 = 0;
-//int sensorValue3 = 0;
-//int sensorValue4 = 0;
+int sensorValue1 = 0;
+int sensorValue2 = 0;
+int sensorValue3 = 0;
+int sensorValue4 = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -96,8 +96,6 @@ void setup() {
       M5.Lcd.setCursor(80, 210);
       M5.Lcd.print("LONG: ");
       M5.Lcd.print(homeLon, 6);
-
-      //M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
     }
   }
   for (int i = 0; i < 4; ++i) {
@@ -106,7 +104,6 @@ void setup() {
     azimuth[i].begin(gps, "GPGSV", 6 + 4 * i);
     snr[i].begin(gps, "GPGSV", 7 + 4 * i);
   }
-
   //GRAPHIC
   M5.Lcd.fillScreen(BLACK);
   M5.Lcd.drawRoundRect(0, 0, 320, 240, 8, CYAN);
@@ -117,7 +114,7 @@ void setup() {
   M5.Lcd.drawRoundRect(8, 136, 90, 96, 4, BLUE);
 }
 void loop() {
-
+  
   //GPS INI
   printInt(gps.satellites.value(), gps.satellites.isValid(), 5);
   printFloat(gps.hdop.hdop(), gps.hdop.isValid(), 6, 1);
@@ -191,7 +188,7 @@ void loop() {
     }
   }
   if (M5.BtnB.wasPressed()) {
-    M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);                         // CURRENT POSITION
+    M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);                         
     static double homeLat = gps.location.lat(), homeLon = gps.location.lng();  // Speichern der aktuellen Koordinaten
     M5.Lcd.setTextSize(2);
     M5.Lcd.setTextColor(CYAN, BLACK);
@@ -212,8 +209,7 @@ void loop() {
     delay(3000);
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
 
-    // Schreibe die Koordinaten in die SD-Karte
-    File myFile = SD.open("/home_coordinates.txt", FILE_WRITE);
+    File myFile = SD.open("/home_coordinates.txt", FILE_WRITE);// Schreibe die Koordinaten in die SD-Karte
     if (myFile) {
       myFile.print(gps.location.lat(), 6);
       myFile.print(",");
@@ -275,7 +271,7 @@ void loop() {
   M5.Lcd.drawFastHLine(113, 77, 95, MAROON);
   M5.Lcd.drawFastVLine(160, 29, 95, MAROON);
   M5.Lcd.drawLine(127, 44, 192, 109, MAROON);
-  M5.Lcd.drawLine(127, 109, 192, 44, MAROON);  //0x00AF
+  M5.Lcd.drawLine(127, 109, 192, 44, MAROON);
 
   //SATELITES VISUALISATION
   if (!GPSnotReady) {
@@ -306,7 +302,6 @@ void loop() {
         }
       }
   }
-
   M5.Lcd.fillCircle(53, 184, 34, BLACK);
   double relCourse = courseToHome - gps.course.deg();
   if (relCourse < 0) {
@@ -322,14 +317,14 @@ void loop() {
     M5.Lcd.drawCircle(53, 184, 24, MAROON);
     M5.Lcd.drawCircle(53, 184, 16, RED);
     M5.Lcd.drawCircle(53, 184, 17, RED);
-    M5.Lcd.fillTriangle(53, 151, 53, 184, 48, 178, RED);     //1
-    M5.Lcd.fillTriangle(53, 151, 53, 184, 58, 178, MAROON);  //2
-    M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 178, RED);     //3
-    M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 190, MAROON);  //4
-    M5.Lcd.fillTriangle(53, 184, 53, 218, 58, 190, RED);     //5
-    M5.Lcd.fillTriangle(53, 184, 53, 218, 48, 190, MAROON);  //6
-    M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 190, RED);     //7
-    M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 178, MAROON);  //8
+    M5.Lcd.fillTriangle(53, 151, 53, 184, 48, 178, RED);     
+    M5.Lcd.fillTriangle(53, 151, 53, 184, 58, 178, MAROON);  
+    M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 178, RED);     
+    M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 190, MAROON);  
+    M5.Lcd.fillTriangle(53, 184, 53, 218, 58, 190, RED);     
+    M5.Lcd.fillTriangle(53, 184, 53, 218, 48, 190, MAROON);  
+    M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 190, RED);     
+    M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 178, MAROON);  
     M5.Lcd.setTextSize(1);
     M5.Lcd.setTextColor(RED, BLACK);
     M5.Lcd.setCursor(51, 140);
@@ -368,14 +363,14 @@ void loop() {
       M5.Lcd.drawCircle(53, 184, 24, 0x00AF);
       M5.Lcd.drawCircle(53, 184, 16, BLUE);
       M5.Lcd.drawCircle(53, 184, 17, BLUE);
-      M5.Lcd.fillTriangle(53, 151, 53, 184, 48, 178, BLUE);    //1
-      M5.Lcd.fillTriangle(53, 151, 53, 184, 58, 178, 0x00AF);  //2
-      M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 178, BLUE);    //3
-      M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 190, 0x00AF);  //4
-      M5.Lcd.fillTriangle(53, 184, 53, 218, 58, 190, BLUE);    //5
-      M5.Lcd.fillTriangle(53, 184, 53, 218, 48, 190, 0x00AF);  //6
-      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 190, BLUE);    //7
-      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 178, 0x00AF);  //8
+      M5.Lcd.fillTriangle(53, 151, 53, 184, 48, 178, BLUE);    
+      M5.Lcd.fillTriangle(53, 151, 53, 184, 58, 178, 0x00AF);  
+      M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 178, BLUE);    
+      M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 190, 0x00AF);  
+      M5.Lcd.fillTriangle(53, 184, 53, 218, 58, 190, BLUE);   
+      M5.Lcd.fillTriangle(53, 184, 53, 218, 48, 190, 0x00AF); 
+      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 190, BLUE);    
+      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 178, 0x00AF);  
     } else {
       M5.Lcd.drawLine(x1, y1, x2, y2, YELLOW);
       M5.Lcd.drawLine(q1, r1, x2, y2, YELLOW);
@@ -395,14 +390,14 @@ void loop() {
       M5.Lcd.drawCircle(53, 184, 24, 0x00AF);
       M5.Lcd.drawCircle(53, 184, 16, BLUE);
       M5.Lcd.drawCircle(53, 184, 17, BLUE);
-      M5.Lcd.fillTriangle(53, 151, 53, 184, 48, 178, BLUE);    //1
-      M5.Lcd.fillTriangle(53, 151, 53, 184, 58, 178, 0x00AF);  //2
-      M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 178, BLUE);    //3
-      M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 190, 0x00AF);  //4
-      M5.Lcd.fillTriangle(53, 184, 53, 218, 58, 190, BLUE);    //5
-      M5.Lcd.fillTriangle(53, 184, 53, 218, 48, 190, 0x00AF);  //6
-      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 190, BLUE);    //7
-      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 178, 0x00AF);  //8
+      M5.Lcd.fillTriangle(53, 151, 53, 184, 48, 178, BLUE);  
+      M5.Lcd.fillTriangle(53, 151, 53, 184, 58, 178, 0x00AF); 
+      M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 178, BLUE); 
+      M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 190, 0x00AF);
+      M5.Lcd.fillTriangle(53, 184, 53, 218, 58, 190, BLUE); 
+      M5.Lcd.fillTriangle(53, 184, 53, 218, 48, 190, 0x00AF); 
+      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 190, BLUE); 
+      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 178, 0x00AF); 
     } else {
       M5.Lcd.drawLine(x1, y1, x2, y2, YELLOW);
       M5.Lcd.drawLine(q1, r1, x2, y2, YELLOW);
@@ -518,10 +513,10 @@ void loop() {
   int sensorValue3 = (analogRead(sensorPin3));
   int sensorValue4 = (analogRead(sensorPin4));
 
-  float CO = (sensorValue1);
-  float NH3 = (sensorValue2);
-  float NO2 = (sensorValue3);
-  float EMF = (sensorValue4);
+  float CO = (sensorValue1); //carbon monoxide
+  float NH3 = (sensorValue2); //ammonia
+  float NO2 = (sensorValue3); //nitrogen dioxide
+  float EMF = (sensorValue4); //electromagnetic field
 
   M5.Lcd.fillRoundRect(13, 78, 80, 9, 2, BLACK);
   if (CO > 3800) {
