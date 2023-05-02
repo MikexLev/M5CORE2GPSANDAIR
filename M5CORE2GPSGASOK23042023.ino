@@ -69,7 +69,7 @@ void setup() {
   while (!pngDrawn) {            // Schleife, die weiter läuft, bis das Display getippt wird
     if (M5.Touch.ispressed()) {  // Wenn auf dem Display getippt wurde, setze pngDrawn auf 'true'
       pngDrawn = true;
-    } else {  // Sonst zeichne das PNG
+    } else {                     // Sonst zeichne das PNG
       M5.update();
       M5.Lcd.drawPngFile(SD, "/radar1.png", 60, 10);
 
@@ -102,6 +102,7 @@ void setup() {
     azimuth[i].begin(gps, "GPGSV", 6 + 4 * i);
     snr[i].begin(gps, "GPGSV", 7 + 4 * i);
   }
+  
   //GRAPHIC
   M5.Lcd.fillScreen(BLACK);
   M5.Lcd.drawRoundRect(0, 0, 320, 240, 8, CYAN);
