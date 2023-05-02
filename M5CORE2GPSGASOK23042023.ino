@@ -26,7 +26,7 @@ int q = 0;
 int r = 0;
 int i = 0;
 int j = 0;
-bool GPSnotReady = false;  //boolean GPSnotReady = false;
+bool GPSnotReady = false;
 SoftwareSerial ss(RXPin, TXPin);
 static const int MAX_SATELLITES = 22;
 TinyGPSCustom totalGPGSVMessages(gps, "GPGSV", 1);
