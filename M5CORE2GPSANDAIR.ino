@@ -437,7 +437,7 @@ void loop() {
     M5.Lcd.drawLine(r, q, x, y, CYAN);
   }
   
-  // CET-Zeit berechnen
+  // CET- berechnen
   if (gps.date.month() <= 3 && gps.date.month() >= 10) // Winterzeit
   {
     gps.time.hour() + 1;
