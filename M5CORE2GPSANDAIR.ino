@@ -46,9 +46,9 @@ int sensorPin1 = 34;  //CO 35----34
 int sensorPin2 = 35;  //NH3 36---35
 int sensorPin3 = 36;  //NO2 26---36
 int sensorPin4 = 27;  //EMF 34---26
-//int sensorValue1 = 0;
-//int sensorValue2 = 0;
-//int sensorValue3 = 0;
+int sensorValue1 = 0;
+int sensorValue2 = 0;
+int sensorValue3 = 0;
 int sensorValue4 = 0;
 
 void setup() {
@@ -436,6 +436,12 @@ void loop() {
     r = (43 * sin(pi - (2 * pi) / 12 * i)) + 160;
     M5.Lcd.drawLine(r, q, x, y, CYAN);
   }
+  
+  // CET-Zeit berechnen
+  if (gps.date.month() <= 3 && gps.date.month() >= 10) // Winterzeit
+  {
+    gps.time.hour() + 1;
+  
   y = (32 * cos(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 77;
   x = (32 * sin(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 160;
 
@@ -444,7 +450,20 @@ void loop() {
 
   M5.Lcd.drawLine(r + 2, q + 2, x, y, CYAN);
   M5.Lcd.drawLine(r - 2, q - 2, x, y, CYAN);
+  } 
+  else // Sommerzeit
+  {
+y = (32 * cos(pi - (2 * pi) / 60 * (((gps.time.hour()+2) * 5) + gps.time.minute() / 12))) + 77;
+  x = (32 * sin(pi - (2 * pi) / 60 * (((gps.time.hour()+2) * 5) + gps.time.minute() / 12))) + 160;
 
+  q = (2 * cos(pi - (2 * pi) / 60 * (((gps.time.hour()+2) * 5) + gps.time.minute() / 12))) + 77;
+  r = (2 * sin(pi - (2 * pi) / 60 * (((gps.time.hour()+2) * 5) + gps.time.minute() / 12))) + 160;
+
+  M5.Lcd.drawLine(r + 2, q + 2, x, y, CYAN);
+  M5.Lcd.drawLine(r - 2, q - 2, x, y, CYAN);
+  }
+  
+  
   y = (42 * cos(pi - (2 * pi) / 60 * gps.time.minute())) + 77;
   x = (42 * sin(pi - (2 * pi) / 60 * gps.time.minute())) + 160;
   q = (2 * cos(pi - (2 * pi) / 60 * gps.time.minute())) + 77;
