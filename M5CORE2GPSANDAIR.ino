@@ -42,10 +42,10 @@ struct
   int azimuth;
   int snr;
 } sats[MAX_SATELLITES];
-int sensorPin1 = 34;  //CO 35----34
-int sensorPin2 = 35;  //NH3 36---35
-int sensorPin3 = 36;  //NO2 26---36
-int sensorPin4 = 27;  //EMF 34---26
+int sensorPin1 = 34;  //CO 
+int sensorPin2 = 35;  //NH3
+int sensorPin3 = 36;  //NO2
+int sensorPin4 = 27;  //EMF
 int sensorValue1 = 0;
 int sensorValue2 = 0;
 int sensorValue3 = 0;
