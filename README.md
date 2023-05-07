@@ -1,7 +1,8 @@
 07.05.2023 grundsätzlich funktioniert alles. Muss noch langfristig getestet werden.
 
 24.04.2023 Speichern von aktuellen position hinzugefügt. Anzeigen von zu letzt gespeicherten koordinaten beim einschalten hinzugefügt.
-![Untitled Sketch_Steckplatine](https://user-images.githubusercontent.com/129496325/236700124-46d7fe73-69d1-4283-b1b1-2424511b8b7e.jpg)
+![Untitled Sketch_Steckplatine](https://user-images.githubusercontent.com/129496325/236700960-824d2eb1-ac96-42ac-b410-b4f1e5c906e2.jpg)
+
 
 
 
