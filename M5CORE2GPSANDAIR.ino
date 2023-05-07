@@ -2,8 +2,8 @@
 #include <TinyGPS++.h>
 #include <SoftwareSerial.h>
 #include <Wire.h>
-#include "cactus_io_BME280_I2C.h"
-
+#include <cactus_io_BME280_I2C.h>
+#include <MiCS6814-I2C.h>
 BME280_I2C bme(0x76);  //i2C PA_SDA 32,PA_SCL 33
 TinyGPSPlus gps;
 double homeLat = 0.0;
@@ -25,6 +25,7 @@ int r = 0;
 int i = 0;
 int j = 0;
 bool GPSnotReady = false;
+bool sensorConnected;
 SoftwareSerial ss(RXPin, TXPin);
 static const int MAX_SATELLITES = 22;
 TinyGPSCustom totalGPGSVMessages(gps, "GPGSV", 1);
@@ -41,13 +42,13 @@ struct
   int azimuth;
   int snr;
 } sats[MAX_SATELLITES];
-int sensorPin1 = 36;  //CO 35----34
-int sensorPin2 = 34;  //NH3 36---35
-int sensorPin3 = 35;  //NO2 26---36
-int sensorPin4 = 26;  //EMF 34---26
-int sensorValue1 = 0;
-int sensorValue2 = 0;
-int sensorValue3 = 0;
+int sensorPin1 = 34;  //CO 35----34
+int sensorPin2 = 35;  //NH3 36---35
+int sensorPin3 = 36;  //NO2 26---36
+int sensorPin4 = 27;  //EMF 34---26
+//int sensorValue1 = 0;
+//int sensorValue2 = 0;
+//int sensorValue3 = 0;
 int sensorValue4 = 0;
 
 void setup() {
@@ -59,11 +60,10 @@ void setup() {
   M5.Axp.SetLed(false);
   bme.begin();
   bme.setTempCal(-1);
-  pinMode(26, INPUT);
   pinMode(34, INPUT);
   pinMode(35, INPUT);
   pinMode(36, INPUT);
-
+  pinMode(27, INPUT);
   ss.begin(GPSBaud);
   bool pngDrawn = false;         // set this variable to 'false' to ensure that the PNG has not yet been drawn
   while (!pngDrawn) {            // Loop that keeps running until the display is tapped
@@ -112,6 +112,7 @@ void setup() {
   M5.Lcd.drawRoundRect(222, 28, 90, 96, 4, BLUE);
   M5.Lcd.drawRoundRect(8, 136, 90, 96, 4, BLUE);
 }
+
 void loop() {
   
   //GPS INI
@@ -505,17 +506,17 @@ void loop() {
   M5.Lcd.print(bme.getPressure_HP() / 100, 0);
   M5.Lcd.println(" HPa  ");
 
-  //GAS SENSOR MICS-6814 MODULE ANALOG OUT
+  //GAS SENSOR CJMCU-6814 MODULE ANALOG OUT
   int sensorValue1 = (analogRead(sensorPin1));
   int sensorValue2 = (analogRead(sensorPin2));
   int sensorValue3 = (analogRead(sensorPin3));
   int sensorValue4 = (analogRead(sensorPin4));
 
-  float CO = (sensorValue1); //carbon monoxide
-  float NH3 = (sensorValue2); //ammonia
-  float NO2 = (sensorValue3); //nitrogen dioxide
+  float CO = (-sensorValue1+ 4095); //carbon monoxide
+  float NH3 = (-sensorValue2+ 4095); //ammonia
+  float NO2 = (-sensorValue3+ 4095); //nitrogen dioxide*/
   float EMF = (sensorValue4); //electromagnetic field
-
+M5.Lcd.fillRoundRect(223, 29, 88, 94, 3, BLACK);
   M5.Lcd.fillRoundRect(13, 78, 80, 9, 2, BLACK);
   if (CO > 3800) {
     M5.Lcd.drawRoundRect(12, 77, 82, 11, 2, RED);
@@ -523,23 +524,22 @@ void loop() {
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("CO :");
     M5.Lcd.setTextColor(RED, BLACK);
-    M5.Lcd.print((CO * (1000 / 4095)));M5.Lcd.print(" ppm");
+    M5.Lcd.print(CO / 40.95);
   } else if (CO > 3200) {
     M5.Lcd.drawRoundRect(12, 77, 82, 11, 2, ORANGE);
     M5.Lcd.setCursor(16, 79);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("CO :");
     M5.Lcd.setTextColor(ORANGE, BLACK);
-    M5.Lcd.print((CO * (1000 / 4095)));M5.Lcd.print(" ppm");
+    M5.Lcd.print(CO / 40.95);
   } else {
     M5.Lcd.drawRoundRect(12, 77, 82, 11, 2, 0x00AF);
     M5.Lcd.setCursor(16, 79);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("CO :");
     M5.Lcd.setTextColor(GREEN, BLACK);
-    M5.Lcd.print((CO * (1000 / 4095)));M5.Lcd.print(" ppm");
+    M5.Lcd.print(CO / 40.95);
   }
-  M5.Lcd.fillRoundRect(223, 29, 88, 94, 3, BLACK);
   if (CO > 4000) {
     M5.Lcd.fillRoundRect(226, 30, 19, 11, 3, RED);
   } else if (CO > 3800) {
@@ -559,27 +559,28 @@ void loop() {
   } else if (CO >= 0) {
     M5.Lcd.fillRoundRect(226, 110, 19, 11, 3, GREEN);
   }
+  M5.Lcd.fillRoundRect(13, 89, 80, 9, 2, BLACK);
   if (NH3 > 3000) {
     M5.Lcd.drawRoundRect(12, 88, 82, 11, 2, RED);
     M5.Lcd.setCursor(16, 90);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("NH3:");
     M5.Lcd.setTextColor(RED, BLACK);
-    M5.Lcd.print((NH3 * (500 / 4095)));M5.Lcd.print(" ppm");
+    M5.Lcd.print(NH3 / 40.95);
   } else if (NH3 > 2000) {
     M5.Lcd.drawRoundRect(12, 88, 82, 11, 2, ORANGE);
     M5.Lcd.setCursor(16, 90);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("NH3:");
     M5.Lcd.setTextColor(ORANGE, BLACK);
-    M5.Lcd.print((NH3 * (500 / 4095)));M5.Lcd.print(" ppm");
+    M5.Lcd.print(NH3 / 40.95);
   } else {
     M5.Lcd.drawRoundRect(12, 88, 82, 11, 2, 0x00AF);
     M5.Lcd.setCursor(16, 90);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("NH3:");
     M5.Lcd.setTextColor(GREENYELLOW, BLACK);
-    M5.Lcd.print((NH3 * (500 / 4095)));M5.Lcd.print(" ppm");
+    M5.Lcd.print(NH3 / 40.95);
   }
   if (NH3 > 4000) {
     M5.Lcd.fillRoundRect(247, 30, 19, 11, 3, RED);
@@ -600,27 +601,28 @@ void loop() {
   } else if (NH3 >= 0) {
     M5.Lcd.fillRoundRect(247, 110, 19, 11, 3, GREEN);
   }
+  M5.Lcd.fillRoundRect(13, 100, 80, 9, 2, BLACK);
   if (NO2 > 3000) {
     M5.Lcd.drawRoundRect(12, 99, 82, 11, 2, RED);
     M5.Lcd.setCursor(16, 101);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("NO2:");
     M5.Lcd.setTextColor(RED, BLACK);
-    M5.Lcd.print((NO2 * (10 / 4095)));M5.Lcd.print(" ppm");
+    M5.Lcd.print(NO2 / 40.95);
   } else if (NO2 > 2000) {
     M5.Lcd.drawRoundRect(12, 99, 82, 11, 2, ORANGE);
     M5.Lcd.setCursor(16, 101);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("NO2:");
     M5.Lcd.setTextColor(ORANGE, BLACK);
-    M5.Lcd.print((NO2 * (10 / 4095)));M5.Lcd.print(" ppm");
+    M5.Lcd.print(NO2 / 40.95);
   } else {
     M5.Lcd.drawRoundRect(12, 99, 82, 11, 2, 0x00AF);
     M5.Lcd.setCursor(16, 101);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("NO2:");
     M5.Lcd.setTextColor(YELLOW, BLACK);
-    M5.Lcd.print((NO2 * (10 / 4095)));M5.Lcd.print(" ppm");
+    M5.Lcd.print(NO2 / 40.95);
   }
   if (NO2 > 4000) {
     M5.Lcd.fillRoundRect(268, 30, 19, 11, 3, RED);
@@ -641,27 +643,28 @@ void loop() {
   } else if (NO2 >= 0) {
     M5.Lcd.fillRoundRect(268, 110, 19, 11, 3, GREEN);
   }
+  M5.Lcd.fillRoundRect(13, 111, 80, 9, 2, BLACK);
   if (EMF > 3000) {
     M5.Lcd.drawRoundRect(12, 110, 82, 11, 2, RED);
     M5.Lcd.setCursor(16, 112);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("EMF:");
     M5.Lcd.setTextColor(RED, BLACK);
-    M5.Lcd.print((EMF * (100 / 4095)));
+    M5.Lcd.print(EMF / 40.95);
   } else if (EMF > 2000) {
     M5.Lcd.drawRoundRect(12, 110, 82, 11, 2, ORANGE);
     M5.Lcd.setCursor(16, 112);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("EMF:");
     M5.Lcd.setTextColor(ORANGE, BLACK);
-    M5.Lcd.print((EMF * (100 / 4095)));
+    M5.Lcd.print(EMF / 40.95);
   } else {
     M5.Lcd.drawRoundRect(12, 110, 82, 11, 2, 0x00AF);
     M5.Lcd.setCursor(16, 112);
     M5.Lcd.setTextColor(DARKCYAN, BLACK);
     M5.Lcd.print("EMF:");
     M5.Lcd.setTextColor(ORANGE, BLACK);
-    M5.Lcd.print((EMF * (100 / 4095)));
+    M5.Lcd.print(EMF / 40.95);
   }
   if (EMF > 4000) {
     M5.Lcd.fillRoundRect(289, 30, 18, 11, 3, RED);
@@ -682,6 +685,7 @@ void loop() {
   } else if (EMF >= 0) {
     M5.Lcd.fillRoundRect(289, 110, 18, 11, 3, GREEN);
   }
+
 
   M5.Lcd.drawRoundRect(225, 110, 21, 11, 2, 0x00AF);
   M5.Lcd.drawRoundRect(246, 110, 21, 11, 2, 0x00AF);
