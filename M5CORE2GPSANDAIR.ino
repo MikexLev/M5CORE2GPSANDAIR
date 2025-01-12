@@ -5,6 +5,7 @@
 #include <cactus_io_BME280_I2C.h>
 #include <MiCS6814-I2C.h>
 BME280_I2C bme(0x76);  //i2C PA_SDA 32,PA_SCL 33
+// The TinyGPSPlus object
 TinyGPSPlus gps;
 double homeLat = 0.0;
 double homeLon = 0.0;
@@ -27,7 +28,10 @@ int j = 0;
 bool GPSnotReady = false;
 bool sensorConnected;
 SoftwareSerial ss(RXPin, TXPin);
-static const int MAX_SATELLITES = 22;
+static const int MAX_SATELLITES = 32;
+//TinyGPSCustom pdop(gps, "GPGSA", 15);  // $GPGSA sentence, 15th element
+//TinyGPSCustom hdop(gps, "GPGSA", 16);  // $GPGSA sentence, 16th element
+//TinyGPSCustom vdop(gps, "GPGSA", 17);  // $GPGSA sentence, 17th element
 TinyGPSCustom totalGPGSVMessages(gps, "GPGSV", 1);
 TinyGPSCustom messageNumber(gps, "GPGSV", 2);
 TinyGPSCustom satsInView(gps, "GPGSV", 3);
@@ -35,43 +39,55 @@ TinyGPSCustom satNumber[4];
 TinyGPSCustom elevation[4];
 TinyGPSCustom azimuth[4];
 TinyGPSCustom snr[4];
-struct
-{
+struct {
   bool active;
   int elevation;
   int azimuth;
   int snr;
 } sats[MAX_SATELLITES];
-int sensorPin1 = 34;  //CO 
-int sensorPin2 = 35;  //NH3
-int sensorPin3 = 36;  //NO2
-int sensorPin4 = 27;  //EMF
+int sensorPin1 = 34;  // CO-Sensor
+int sensorPin2 = 35;  // NH3-Sensor
+int sensorPin3 = 36;  // NO2-Sensor
+int sensorPin4 = 27;  // EMF-Sensor
 int sensorValue1 = 0;
 int sensorValue2 = 0;
 int sensorValue3 = 0;
 int sensorValue4 = 0;
-
+  // Speichert die x- und y-Koordinaten sowie die Kreisgröße der Satelliten für das Löschen alter Kreise
+int oldX[MAX_SATELLITES] = {0};
+int oldY[MAX_SATELLITES] = {0};
+int oldCircleSize[MAX_SATELLITES] = {0};
 void setup() {
+  M5.begin(true, false, true);  // Initialisiere M5Core2 ohne Batterie
   Serial.begin(115200);
   Wire.begin(32, 33);
-  SD.begin(TFCARD_CS_PIN, SPI, 40000000UL);
-  M5.begin();
+  if (!SD.begin(TFCARD_CS_PIN, SPI, 40000000UL)) {
+    Serial.println("SD-Karte konnte nicht initialisiert werden! Neustart...");
+    ESP.restart();
+  }
   M5.Lcd.fillScreen(BLACK);
   M5.Axp.SetLed(false);
-  bme.begin();
+  if (!bme.begin()) {
+    Serial.println("BME280 nicht gefunden!");
+    sensorConnected = false;
+  } else {
+    sensorConnected = true;
+    Serial.println("BME280 erfolgreich verbunden.");
+  }
   bme.setTempCal(-1);
   pinMode(34, INPUT);
   pinMode(35, INPUT);
   pinMode(36, INPUT);
   pinMode(27, INPUT);
+  Serial.println("Starte GPS...");
   ss.begin(GPSBaud);
   bool pngDrawn = false;         // set this variable to 'false' to ensure that the PNG has not yet been drawn
   while (!pngDrawn) {            // Loop that keeps running until the display is tapped
     if (M5.Touch.ispressed()) {  // If the display was typed, set pngDrawn to 'true'
       pngDrawn = true;
-    } else {                     // Else draw the PNG
+    } else {  // Else draw the PNG
       M5.update();
-      M5.Lcd.drawPngFile(SD, "/radar1.png", 60, 10);
+      M5.Lcd.drawPngFile(SD, "/radar7.png", 0, 0);
 
       File myFile = SD.open("/home_coordinates.txt", FILE_READ);
       if (myFile) {
@@ -80,19 +96,31 @@ void setup() {
         if (commaIndex != -1) {
           homeLat = line.substring(0, commaIndex).toDouble();
           homeLon = line.substring(commaIndex + 1).toDouble();
+        } else {
+          Serial.println("Fehler: Dateiinhalt ungültig!");
         }
         myFile.close();
+      } else {
+        Serial.println("Datei '/home_coordinates.txt' nicht gefunden!");
       }
+      delay(300);  // Verhindert übermäßiges Zeichnen
 
-      M5.Lcd.setTextSize(2);
       M5.Lcd.setTextColor(CYAN);
+      M5.Lcd.setTextSize(2);
       M5.Lcd.setCursor(60, 150);
       M5.Lcd.print("SAVED COORDINATES");
-      M5.Lcd.setCursor(80, 180);
-      M5.Lcd.print("LATT: ");
+      M5.Lcd.setTextSize(3);
+      M5.Lcd.setCursor(0, 180);
+      M5.Lcd.print("LATT: N");
+      M5.Lcd.setTextSize(1);
+      M5.Lcd.print("\xF7 ");
+      M5.Lcd.setTextSize(3);
       M5.Lcd.print(homeLat, 6);
-      M5.Lcd.setCursor(80, 210);
-      M5.Lcd.print("LONG: ");
+      M5.Lcd.setCursor(0, 210);
+      M5.Lcd.print("LONG: E");
+      M5.Lcd.setTextSize(1);
+      M5.Lcd.print("\xF7 ");
+      M5.Lcd.setTextSize(3);
       M5.Lcd.print(homeLon, 6);
     }
   }
@@ -102,7 +130,7 @@ void setup() {
     azimuth[i].begin(gps, "GPGSV", 6 + 4 * i);
     snr[i].begin(gps, "GPGSV", 7 + 4 * i);
   }
-  
+
   //GRAPHIC
   M5.Lcd.fillScreen(BLACK);
   M5.Lcd.drawRoundRect(0, 0, 320, 240, 8, CYAN);
@@ -114,7 +142,6 @@ void setup() {
 }
 
 void loop() {
-  
   //GPS INI
   printInt(gps.satellites.value(), gps.satellites.isValid(), 5);
   printFloat(gps.hdop.hdop(), gps.hdop.isValid(), 6, 1);
@@ -128,13 +155,12 @@ void loop() {
   printStr(gps.course.isValid() ? TinyGPSPlus::cardinal(gps.course.deg()) : "*** ", 6);
 
   //SATELLITE TRACKER
-  while (ss.available() > 0) {
+  if (ss.available() > 0) {
     gps.encode(ss.read());
     if (totalGPGSVMessages.isUpdated()) {
       for (int i = 0; i < 4; ++i) {
         int no = atoi(satNumber[i].value());
-        Serial.print(F("SatNumber is "));
-        Serial.println(no);
+        Serial.print(F("SatNumber is ")); Serial.println(no);
         if (no >= 1 && no <= MAX_SATELLITES) {
           sats[no - 1].elevation = atoi(elevation[i].value());
           sats[no - 1].azimuth = atoi(azimuth[i].value());
@@ -142,10 +168,21 @@ void loop() {
           sats[no - 1].active = true;
         }
       }
+
+
       int totalMessages = atoi(totalGPGSVMessages.value());
       int currentMessage = atoi(messageNumber.value());
       if (totalMessages == currentMessage)
-        GPSnotReady = ((gps.location.lat() == 0) && (gps.location.lng() == 0));
+        Serial.print(F("Sats="));
+      Serial.print(gps.satellites.value());
+      Serial.print(F(" Nums="));
+      for (int i = 0; i < MAX_SATELLITES; ++i) {
+        if (sats[i].active) {
+          Serial.print(i + 1);
+          Serial.print(F(" "));
+        }
+      }
+      GPSnotReady = ((gps.location.lat() == 0) && (gps.location.lng() == 0));
     }
   }
 
@@ -162,7 +199,7 @@ void loop() {
   }
 
   //TOUCH BUTTONS
-  M5.update();
+  M5.update();  // Aktualisiere die M5-Core2-Ereignisse (Touch, Buttons usw.)
   if (M5.BtnA.wasPressed()) {
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
     M5.Lcd.setTextSize(2);
@@ -170,16 +207,25 @@ void loop() {
     M5.Lcd.setCursor(108, 137);
     M5.Lcd.print("HOME COORDINATES");
     M5.Lcd.setCursor(108, 157);
-    M5.Lcd.print("LATT: 51.861120");
+    M5.Lcd.print("LATT: N");
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.print("\xF7 ");
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.print("51.861120");
+    M5.Lcd.setTextSize(2);
     M5.Lcd.setCursor(108, 177);
-    M5.Lcd.print("LONG: 8.289310");
-    delay(3000);
+    M5.Lcd.print("LONG: E");
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.print("\xF7 ");
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.print(" 8.289310");
+    delay(1000);
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
     File myFile = SD.open("/home_coordinates.txt", FILE_WRITE);
     if (myFile) {
-      myFile.print(51.861120);
+      myFile.print(51.861120, 6);
       myFile.print(",");
-      myFile.println(8.289310);
+      myFile.println(8.289310, 6);
       myFile.close();
       homeLat = 51.861120;
       homeLon = 8.289310;
@@ -187,38 +233,43 @@ void loop() {
       Serial.println("ERROR WRITE FILE");
     }
   }
+
+
   if (M5.BtnB.wasPressed()) {
-    M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);                         
-    static double homeLat = gps.location.lat(), homeLon = gps.location.lng();  // Save the current coordinates
+    M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
+    homeLat = gps.location.lat();
+    homeLon = gps.location.lng();
     M5.Lcd.setTextSize(2);
     M5.Lcd.setTextColor(CYAN, BLACK);
     M5.Lcd.setCursor(108, 137);
     M5.Lcd.print("POSITION SAVED");
     M5.Lcd.setCursor(108, 157);
-    M5.Lcd.print("LATT:");
+    M5.Lcd.print("LATT: N");
     M5.Lcd.setTextSize(1);
-    M5.Lcd.print(" \xF7");
+    M5.Lcd.print("\xF7 ");
     M5.Lcd.setTextSize(2);
     M5.Lcd.print(gps.location.lat(), 6);
     M5.Lcd.setCursor(108, 177);
-    M5.Lcd.print("LONG:");
+    M5.Lcd.print("LONG: E");
     M5.Lcd.setTextSize(1);
-    M5.Lcd.print(" \xF7");
+    M5.Lcd.print("\xF7   ");
     M5.Lcd.setTextSize(2);
     M5.Lcd.print(gps.location.lng(), 6);
-    delay(3000);
+    delay(1000);
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
 
-    File myFile = SD.open("/home_coordinates.txt", FILE_WRITE);// Write the coordinates to the SD card
-    if (myFile) {
-      myFile.print(gps.location.lat(), 6);
-      myFile.print(",");
-      myFile.println(gps.location.lng(), 6);
-      myFile.close();
-      homeLat = gps.location.lat();
-      homeLon = gps.location.lng();
-    } else {
-      Serial.println("ERROR WRITE FILE");
+    if (gps.location.isValid()) {
+      File myFile = SD.open("/home_coordinates.txt", FILE_WRITE);
+      if (myFile) {
+        myFile.print(gps.location.lat(), 6);
+        myFile.print(",");
+        myFile.println(gps.location.lng(), 6);
+        myFile.close();
+        homeLat = gps.location.lat();
+        homeLon = gps.location.lng();
+      } else {
+        Serial.println("ERROR WRITE FILE");
+      }
     }
   }
   if (M5.BtnC.wasPressed()) {
@@ -228,16 +279,24 @@ void loop() {
     M5.Lcd.setCursor(108, 137);
     M5.Lcd.print("SVALBARD GSV");
     M5.Lcd.setCursor(108, 157);
-    M5.Lcd.print("LATT: 78.235680");
+    M5.Lcd.print("LATT: N");
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.print("\xF7 ");
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.print("78.235680");
     M5.Lcd.setCursor(108, 177);
-    M5.Lcd.print("LONG: 15.491320");
-    delay(3000);
+    M5.Lcd.print("LONG: E");
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.print("\xF7 ");
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.print("15.491320");
+    delay(1000);
     M5.Lcd.fillRoundRect(100, 136, 214, 96, 4, BLACK);
     File myFile = SD.open("/home_coordinates.txt", FILE_WRITE);
     if (myFile) {
-      myFile.print(78.235680);
+      myFile.print(78.235680, 6);
       myFile.print(",");
-      myFile.println(15.491320);
+      myFile.println(15.491320, 6);
       myFile.close();
       homeLat = 78.235680;
       homeLon = 15.491320;
@@ -264,7 +323,9 @@ void loop() {
   M5.Lcd.fillCircle(160, 77, 47, BLACK);
 
   //SATELLITES DISPLAY
-  M5.Lcd.drawCircle(160, 77, 47, MAROON);
+
+  //M5.Lcd.drawCircle(160, 77, 47, 0x00AF);
+  M5.Lcd.drawCircle(160, 77, 47, BLUE);
   M5.Lcd.drawCircle(160, 77, 16, MAROON);
   M5.Lcd.drawCircle(160, 77, 32, MAROON);
   M5.Lcd.drawFastHLine(113, 77, 95, MAROON);
@@ -272,35 +333,171 @@ void loop() {
   M5.Lcd.drawLine(127, 44, 192, 109, MAROON);
   M5.Lcd.drawLine(127, 109, 192, 44, MAROON);
 
-  //SATELITES VISUALISATION
+/*  //SATELITES VISUALISATION
   if (!GPSnotReady) {
-    for (int i = 0; i < MAX_SATELLITES; ++i)
-      if (sats[i].active) {
-        if (sats[i].snr > 1) {
-          az = (sats[i].azimuth);
-          el = (sats[i].elevation) / 2;
-          az_r = az * rad_fac;
-          e = 40 * ((90 - el)) / 100;
-          x = 160 + (sin(az_r) * e);
-          y = 75 - (cos(az_r) * e);
-          M5.Lcd.drawCircle(x, y, 2, WHITE);
+    int centerX = 160, centerY = 75;
+    float rad_fac = 3.14159265359 / 180;
+    for (int i = 0; i < MAX_SATELLITES; ++i) {
+      if (sats[i].active && sats[i].snr > 1) {
+        // Berechnung der Position
+        float az = sats[i].azimuth;
+        float el = sats[i].elevation / 2;
+        float az_r = az * rad_fac;
+        float e = 44 * (90 - el) / 100;
+        int x = centerX + (sin(az_r) * e);
+        int y = centerY - (cos(az_r) * e);
 
-          if ((sats[i].snr) > 20) {
-            M5.Lcd.drawCircle(x, y, 6, GREEN);
-          } else if ((sats[i].snr) > 19) {
-            M5.Lcd.drawCircle(x, y, 5, YELLOW);
-          }
-
-          else if ((sats[i].snr) > 16) {
-            M5.Lcd.drawCircle(x, y, 4, ORANGE);
-          } else if ((sats[i].snr) > 13) {
-            M5.Lcd.drawCircle(x, y, 3, RED);
-          } else if ((sats[i].snr) > 10) {
-            M5.Lcd.drawCircle(x, y, 2, PURPLE);
-          }
+        // Bestimme Farbe basierend auf SNR
+        uint16_t circleColor;
+        if (sats[i].snr > 24) {
+          circleColor = 0x07E0;
+        } else if (sats[i].snr > 22) {
+          circleColor = 0x03E0;
+        } else if (sats[i].snr > 20) {
+          circleColor = 0xAFE5;
+        } else if (sats[i].snr > 18) {
+          circleColor = 0xFFE0;
+        } else if (sats[i].snr > 16) {
+          circleColor = 0x07FF;
+        } else if (sats[i].snr > 15) {
+          circleColor = 0x03EF;
+        } else if (sats[i].snr > 14) {
+          circleColor = 0xFD20;
+        } else if (sats[i].snr > 13) {
+          circleColor = 0x001F;
+        } else if (sats[i].snr > 12) {
+          circleColor = 0x000F;
+        } else if (sats[i].snr > 11) {
+          circleColor = 0x7BE0;
+        } else if (sats[i].snr > 10) {
+          circleColor = 0x780F;
+        } else if (sats[i].snr > 8) {
+          circleColor = 0x7800;
+        } else if (sats[i].snr > 6) {
+          circleColor = 0xF81F;
+        } else if (sats[i].snr > 4) {
+          circleColor = 0xC618;
+        } else if (sats[i].snr > 2) {
+          circleColor = 0xF800;
+        } else if (sats[i].snr > 1) {
+          circleColor = 0xFFFF;
         }
+
+        // Dynamische Kreisgröße basierend auf SNR
+        int circleSize = map(sats[i].snr, 10, 40, 2, 8);
+
+        // Zeichne den Satelliten
+        M5.Lcd.drawCircle(x, y, circleSize, circleColor);
+
+        // Zeige die Satellitennummer oder SNR
+        M5.Lcd.setTextSize(1);
+        //M5.Lcd.setTextColor(WHITE);
+
+        //M5.Lcd.setCursor(x + 4, y);
+        //M5.Lcd.printf("%d", sats[i].snr);
+
+
+        M5.Lcd.setCursor(102, 34);
+        M5.Lcd.setTextColor(CYAN, BLACK);
+        M5.Lcd.print("SATS");
+        M5.Lcd.setCursor(102, 44);
+        M5.Lcd.print(gps.satellites.value());
+        M5.Lcd.print(" ");
       }
-  }
+    }
+  }*/
+
+  
+
+
+    if (!GPSnotReady) {
+        int centerX = 160, centerY = 75;
+        float rad_fac = 3.14159265359 / 180;
+
+        for (int i = 0; i < MAX_SATELLITES; ++i) {
+            if (sats[i].active && sats[i].snr > 1) {
+                // Berechnung der Position
+                float az = sats[i].azimuth;
+                float el = sats[i].elevation / 2;
+                float az_r = az * rad_fac;
+                float e = 42 * (90 - el) / 100;
+                int x = centerX + (sin(az_r) * e);
+                int y = centerY - (cos(az_r) * e);
+
+                // Bestimme Farbe basierend auf SNR
+                uint16_t circleColor;
+                if (sats[i].snr > 40) {
+                    circleColor = 0x07E0;
+                } else if (sats[i].snr > 35) {
+                    circleColor = 0x03E0;
+                } else if (sats[i].snr > 30) {
+                    circleColor = 0xAFE5;
+                } else if (sats[i].snr > 28) {
+                    circleColor = 0xFFE0;
+                } else if (sats[i].snr > 26) {
+                    circleColor = 0x07FF;
+                } else if (sats[i].snr > 25) {
+                    circleColor = 0x03EF;
+                } else if (sats[i].snr > 24) {
+                    circleColor = 0xFD20;
+                } else if (sats[i].snr > 23) {
+                    circleColor = 0x001F;
+                } else if (sats[i].snr > 22) {
+                    circleColor = 0x000F;
+                } else if (sats[i].snr > 21) {
+                    circleColor = 0x7BE0;
+                } else if (sats[i].snr > 20) {
+                    circleColor = 0x780F;
+                } else if (sats[i].snr > 19) {
+                    circleColor = 0x7800;
+                } else if (sats[i].snr > 18) {
+                    circleColor = 0xF81F;
+                } else if (sats[i].snr > 17) {
+                    circleColor = 0xC618;
+                } else if (sats[i].snr > 16) {
+                    circleColor = 0xF800;
+                } else if (sats[i].snr >= 10) {
+                    circleColor = 0xFFFF;
+                }
+
+                // Dynamische Kreisgröße basierend auf SNR
+                int circleSize = map(sats[i].snr, 10, 40, 2, 8);
+
+                // Lösche den alten Kreis
+                if (oldX[i] != 0 && oldY[i] != 0) {
+                    M5.Lcd.drawCircle(oldX[i], oldY[i], oldCircleSize[i], BLACK); // Hintergrundfarbe
+                }
+
+                // Zeichne den neuen Kreis
+                M5.Lcd.drawCircle(x, y, circleSize, circleColor);
+
+                // Speichere die aktuelle Position und Größe
+                oldX[i] = x;
+                oldY[i] = y;
+                oldCircleSize[i] = circleSize;
+
+                // Zeige die Satellitennummer oder SNR
+                M5.Lcd.setTextSize(1);
+                M5.Lcd.setCursor(102, 34);
+                M5.Lcd.setTextColor(CYAN, BLACK);
+                M5.Lcd.print("SATS");
+                M5.Lcd.setCursor(102, 44);
+                M5.Lcd.print(gps.satellites.value());
+                M5.Lcd.print(" ");
+            } else {
+                // Falls der Satellit nicht aktiv ist, lösche den alten Kreis
+                if (oldX[i] != 0 && oldY[i] != 0) {
+                    M5.Lcd.drawCircle(oldX[i], oldY[i], oldCircleSize[i], BLACK); // Hintergrundfarbe
+                    oldX[i] = 0;
+                    oldY[i] = 0;
+                    oldCircleSize[i] = 0;
+                }
+            }
+        }
+    }
+//}
+
+  
   M5.Lcd.fillCircle(53, 184, 34, BLACK);
   double relCourse = courseToHome - gps.course.deg();
   if (relCourse < 0) {
@@ -311,21 +508,23 @@ void loop() {
   relCourse = relCourse - 360;
   if (distanceToHome < 10) {
 
-    M5.Lcd.drawCircle(53, 184, 30, MAROON);
-    M5.Lcd.drawCircle(53, 184, 23, MAROON);
-    M5.Lcd.drawCircle(53, 184, 24, MAROON);
-    M5.Lcd.drawCircle(53, 184, 16, RED);
-    M5.Lcd.drawCircle(53, 184, 17, RED);
-    M5.Lcd.fillTriangle(53, 151, 53, 184, 48, 178, RED);     
-    M5.Lcd.fillTriangle(53, 151, 53, 184, 58, 178, MAROON);  
-    M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 178, RED);     
-    M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 190, MAROON);  
-    M5.Lcd.fillTriangle(53, 184, 53, 218, 58, 190, RED);     
-    M5.Lcd.fillTriangle(53, 184, 53, 218, 48, 190, MAROON);  
-    M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 190, RED);     
-    M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 178, MAROON);  
+    M5.Lcd.drawCircle(53, 184, 30, DARKGREY);
+    M5.Lcd.drawCircle(53, 184, 23, DARKGREEN);
+    M5.Lcd.drawCircle(53, 184, 24, OLIVE);
+    M5.Lcd.drawCircle(53, 184, 16, GREENYELLOW);
+    M5.Lcd.drawCircle(53, 184, 17, GREEN);
+    M5.Lcd.fillTriangle(53, 151, 53, 184, 48, 178, GREEN);
+    M5.Lcd.fillTriangle(53, 151, 53, 184, 58, 178, DARKGREEN);
+    M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 178, GREEN);
+    M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 190, DARKGREEN);
+    M5.Lcd.fillTriangle(53, 184, 53, 218, 58, 190, GREEN);
+    M5.Lcd.fillTriangle(53, 184, 53, 218, 48, 190, DARKGREEN);
+    M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 190, GREEN);
+    M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 178, DARKGREEN);
     M5.Lcd.setTextSize(1);
-    M5.Lcd.setTextColor(RED, BLACK);
+    M5.Lcd.setTextColor(YELLOW, BLACK);
+
+    M5.Lcd.fillRoundRect(51, 140, 8, 10, 2, BLACK);
     M5.Lcd.setCursor(51, 140);
     M5.Lcd.print("N");
     M5.Lcd.setCursor(11, 181);
@@ -356,20 +555,19 @@ void loop() {
     q2 = q1 + q;
     r2 = r1 - r;
     if ((gps.location.lat() == 0) && (gps.location.lng() == 0)) {
-
       M5.Lcd.drawCircle(53, 184, 30, 0x00AF);
       M5.Lcd.drawCircle(53, 184, 23, 0x00AF);
       M5.Lcd.drawCircle(53, 184, 24, 0x00AF);
       M5.Lcd.drawCircle(53, 184, 16, BLUE);
       M5.Lcd.drawCircle(53, 184, 17, BLUE);
-      M5.Lcd.fillTriangle(53, 151, 53, 184, 48, 178, BLUE);    
-      M5.Lcd.fillTriangle(53, 151, 53, 184, 58, 178, 0x00AF);  
-      M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 178, BLUE);    
-      M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 190, 0x00AF);  
-      M5.Lcd.fillTriangle(53, 184, 53, 218, 58, 190, BLUE);   
-      M5.Lcd.fillTriangle(53, 184, 53, 218, 48, 190, 0x00AF); 
-      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 190, BLUE);    
-      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 178, 0x00AF);  
+      M5.Lcd.fillTriangle(53, 151, 53, 184, 48, 178, BLUE);
+      M5.Lcd.fillTriangle(53, 151, 53, 184, 58, 178, 0x00AF);
+      M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 178, BLUE);
+      M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 190, 0x00AF);
+      M5.Lcd.fillTriangle(53, 184, 53, 218, 58, 190, BLUE);
+      M5.Lcd.fillTriangle(53, 184, 53, 218, 48, 190, 0x00AF);
+      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 190, BLUE);
+      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 178, 0x00AF);
     } else {
       M5.Lcd.drawLine(x1, y1, x2, y2, YELLOW);
       M5.Lcd.drawLine(q1, r1, x2, y2, YELLOW);
@@ -389,14 +587,14 @@ void loop() {
       M5.Lcd.drawCircle(53, 184, 24, 0x00AF);
       M5.Lcd.drawCircle(53, 184, 16, BLUE);
       M5.Lcd.drawCircle(53, 184, 17, BLUE);
-      M5.Lcd.fillTriangle(53, 151, 53, 184, 48, 178, BLUE);  
-      M5.Lcd.fillTriangle(53, 151, 53, 184, 58, 178, 0x00AF); 
-      M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 178, BLUE); 
+      M5.Lcd.fillTriangle(53, 151, 53, 184, 48, 178, BLUE);
+      M5.Lcd.fillTriangle(53, 151, 53, 184, 58, 178, 0x00AF);
+      M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 178, BLUE);
       M5.Lcd.fillTriangle(88, 184, 53, 184, 58, 190, 0x00AF);
-      M5.Lcd.fillTriangle(53, 184, 53, 218, 58, 190, BLUE); 
-      M5.Lcd.fillTriangle(53, 184, 53, 218, 48, 190, 0x00AF); 
-      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 190, BLUE); 
-      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 178, 0x00AF); 
+      M5.Lcd.fillTriangle(53, 184, 53, 218, 58, 190, BLUE);
+      M5.Lcd.fillTriangle(53, 184, 53, 218, 48, 190, 0x00AF);
+      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 190, BLUE);
+      M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 178, 0x00AF);
     } else {
       M5.Lcd.drawLine(x1, y1, x2, y2, YELLOW);
       M5.Lcd.drawLine(q1, r1, x2, y2, YELLOW);
@@ -436,34 +634,33 @@ void loop() {
     r = (43 * sin(pi - (2 * pi) / 12 * i)) + 160;
     M5.Lcd.drawLine(r, q, x, y, CYAN);
   }
-  
+
   // CET- berechnen
-  if (gps.date.month() <= 3 && gps.date.month() >= 10) // Winterzeit
+  if (gps.date.month() <= 3 && gps.date.month() >= 10)  // Winterzeit
   {
     gps.time.hour() + 1;
-  
-  y = (32 * cos(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 77;
-  x = (32 * sin(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 160;
 
-  q = (2 * cos(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 77;
-  r = (2 * sin(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 160;
+    y = (32 * cos(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 77;
+    x = (32 * sin(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 160;
 
-  M5.Lcd.drawLine(r + 2, q + 2, x, y, CYAN);
-  M5.Lcd.drawLine(r - 2, q - 2, x, y, CYAN);
-  } 
-  else // Sommerzeit
+    q = (2 * cos(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 77;
+    r = (2 * sin(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 160;
+
+    M5.Lcd.drawLine(r + 2, q + 2, x, y, CYAN);
+    M5.Lcd.drawLine(r - 2, q - 2, x, y, CYAN);
+  } else  // Sommerzeit
   {
-y = (32 * cos(pi - (2 * pi) / 60 * (((gps.time.hour()+2) * 5) + gps.time.minute() / 12))) + 77;
-  x = (32 * sin(pi - (2 * pi) / 60 * (((gps.time.hour()+2) * 5) + gps.time.minute() / 12))) + 160;
+    y = (32 * cos(pi - (2 * pi) / 60 * (((gps.time.hour() + 2) * 5) + gps.time.minute() / 12))) + 77;
+    x = (32 * sin(pi - (2 * pi) / 60 * (((gps.time.hour() + 2) * 5) + gps.time.minute() / 12))) + 160;
 
-  q = (2 * cos(pi - (2 * pi) / 60 * (((gps.time.hour()+2) * 5) + gps.time.minute() / 12))) + 77;
-  r = (2 * sin(pi - (2 * pi) / 60 * (((gps.time.hour()+2) * 5) + gps.time.minute() / 12))) + 160;
+    q = (2 * cos(pi - (2 * pi) / 60 * (((gps.time.hour() + 2) * 5) + gps.time.minute() / 12))) + 77;
+    r = (2 * sin(pi - (2 * pi) / 60 * (((gps.time.hour() + 2) * 5) + gps.time.minute() / 12))) + 160;
 
-  M5.Lcd.drawLine(r + 2, q + 2, x, y, CYAN);
-  M5.Lcd.drawLine(r - 2, q - 2, x, y, CYAN);
+    M5.Lcd.drawLine(r + 2, q + 2, x, y, CYAN);
+    M5.Lcd.drawLine(r - 2, q - 2, x, y, CYAN);
   }
-  
-  
+
+
   y = (42 * cos(pi - (2 * pi) / 60 * gps.time.minute())) + 77;
   x = (42 * sin(pi - (2 * pi) / 60 * gps.time.minute())) + 160;
   q = (2 * cos(pi - (2 * pi) / 60 * gps.time.minute())) + 77;
@@ -531,11 +728,11 @@ y = (32 * cos(pi - (2 * pi) / 60 * (((gps.time.hour()+2) * 5) + gps.time.minute(
   int sensorValue3 = (analogRead(sensorPin3));
   int sensorValue4 = (analogRead(sensorPin4));
 
-  float CO = (-sensorValue1+ 4095); //carbon monoxide
-  float NH3 = (-sensorValue2+ 4095); //ammonia
-  float NO2 = (-sensorValue3+ 4095); //nitrogen dioxide*/
-  float EMF = (sensorValue4); //electromagnetic field
-M5.Lcd.fillRoundRect(223, 29, 88, 94, 3, BLACK);
+  float CO = (-sensorValue1 + 4095);   //carbon monoxide
+  float NH3 = (-sensorValue2 + 4095);  //ammonia
+  float NO2 = (-sensorValue3 + 4095);   //nitrogen dioxide*/
+  float EMF = (sensorValue4);         //electromagnetic field
+  M5.Lcd.fillRoundRect(223, 29, 88, 94, 3, BLACK);
   M5.Lcd.fillRoundRect(13, 78, 80, 9, 2, BLACK);
   if (CO > 3800) {
     M5.Lcd.drawRoundRect(12, 77, 82, 11, 2, RED);
@@ -663,6 +860,7 @@ M5.Lcd.fillRoundRect(223, 29, 88, 94, 3, BLACK);
     M5.Lcd.fillRoundRect(268, 110, 19, 11, 3, GREEN);
   }
   M5.Lcd.fillRoundRect(13, 111, 80, 9, 2, BLACK);
+
   if (EMF > 3000) {
     M5.Lcd.drawRoundRect(12, 110, 82, 11, 2, RED);
     M5.Lcd.setCursor(16, 112);
@@ -847,15 +1045,15 @@ M5.Lcd.fillRoundRect(223, 29, 88, 94, 3, BLACK);
   } else {
 
     M5.Lcd.print(gps.speed.kmph(), 0);
-    M5.Lcd.print("km/h   ");
+    M5.Lcd.print("km/h  ");
   }
   M5.Lcd.setTextColor(DARKCYAN, BLACK);
   M5.Lcd.setCursor(106, 217);
   M5.Lcd.print("HOME:");
   M5.Lcd.setTextColor(CYAN, BLACK);
   if ((gps.location.lat() == 0) && (gps.location.lng() == 0)) {
-  M5.Lcd.print("---");
-  
+    M5.Lcd.print("---");
+
   } else if (TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) < 1000) {
     M5.Lcd.fillRoundRect(164, 217, 150, 14, 2, BLACK);
     M5.Lcd.print(TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon), 0);
@@ -868,49 +1066,51 @@ M5.Lcd.fillRoundRect(223, 29, 88, 94, 3, BLACK);
   M5.Lcd.fillRect(12, 222, 80, 9, BLACK);
   M5.Lcd.setTextSize(1);
   M5.Lcd.setTextColor(RED);
-
   M5.Lcd.setCursor(51, 222);
   M5.Lcd.print("S");
   M5.Lcd.setTextSize(1);
   M5.Lcd.setTextColor(RED, BLACK);
   M5.Lcd.setCursor(16, 222);
-  
+
   // how long to the destination
-  if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3) * 60 > 43200) {
-    M5.Lcd.fillRect(12, 222, 80, 9, BLACK);
-    M5.Lcd.print("      S");
-  } else if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3) * 60 == 1440) {
+  if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 4) * 60 > 4200) {
     M5.Lcd.fillRect(12, 222, 80, 9, BLACK);
     M5.Lcd.setTextColor(YELLOW, BLACK);
-    M5.Lcd.print(((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3) / 24, 1);
-    M5.Lcd.print(" DAY");
-  } else if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3) * 60 >= 1441) {
-    M5.Lcd.fillRect(12, 222, 80, 9, BLACK);
-    M5.Lcd.setTextColor(YELLOW, BLACK);
-    M5.Lcd.print(((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3) / 24, 1);
+    M5.Lcd.print(((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 4) / 10, 1);
     M5.Lcd.print(" DAYS");
-  } else if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3) * 60 == 60) {
+  } else if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 4) * 60 == 600) {
     M5.Lcd.fillRect(12, 222, 80, 9, BLACK);
     M5.Lcd.setTextColor(YELLOW, BLACK);
-    M5.Lcd.print((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3, 2);
+    M5.Lcd.print(((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 4) / 10, 1);
+    M5.Lcd.print(" DAY");
+  } else if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 4) * 60 >= 600) {
+    M5.Lcd.fillRect(12, 222, 80, 9, BLACK);
+    M5.Lcd.setTextColor(YELLOW, BLACK);
+    M5.Lcd.print(((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 4) / 10, 1);
+    M5.Lcd.print(" DAYS");
+  } else if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 4) * 60 == 60) {
+    M5.Lcd.fillRect(12, 222, 80, 9, BLACK);
+    M5.Lcd.setTextColor(YELLOW, BLACK);
+    M5.Lcd.print((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 4, 2);
     M5.Lcd.print(" HOUR");
-  } else if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3) * 60 > 60) {
+  } else if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 4) * 60 > 60) {
     M5.Lcd.fillRect(12, 222, 80, 9, BLACK);
     M5.Lcd.setTextColor(YELLOW, BLACK);
-    M5.Lcd.print((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3, 2);
+    M5.Lcd.print((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 4, 2);
     M5.Lcd.print(" HOURS");
-  } else if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3) * 60 > 1.5) {
+  } else if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 4) * 60 > 1.5) {
     M5.Lcd.fillRect(12, 222, 80, 9, BLACK);
     M5.Lcd.setTextColor(YELLOW, BLACK);
-    M5.Lcd.print(((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3) * 60, 0);
+    M5.Lcd.print(((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 4) * 60, 0);
     M5.Lcd.print(" MINUTES");
-  } else if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3) * 60 >= 0.5) {
+  } else if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 4) * 60 >= 0.5) {
     M5.Lcd.fillRect(12, 222, 80, 9, BLACK);
     M5.Lcd.setTextColor(YELLOW, BLACK);
-    M5.Lcd.print(((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3) * 60, 0);
+    M5.Lcd.print(((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 4) * 60, 0);
     M5.Lcd.print(" MINUTE");
-  } else if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 3) * 60 <= 0.5) {
-    M5.Lcd.print("");
+  } else if (((TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000) / 4) * 60 <= 0.5) {
+    M5.Lcd.setTextColor(GREEN, BLACK);
+    M5.Lcd.print(" DESTINATION");
   }
 }
 
@@ -931,7 +1131,9 @@ static void printFloat(float val, bool valid, int len, int prec) {
     Serial.print(val, prec);
     int vi = abs((int)val);
     int flen = prec + (val < 0.0 ? 2 : 1);
-    flen += vi >= 1000 ? 4 : vi >= 100 ? 3: vi >= 10  ? 2: 1;
+    flen += vi >= 1000 ? 4 : vi >= 100 ? 3
+                           : vi >= 10  ? 2
+                                       : 1;
     for (int i = flen; i < len; ++i)
       Serial.print(' ');
   }
@@ -957,7 +1159,7 @@ static void printDateTime(TinyGPSDate &d, TinyGPSTime &t) {
     M5.Lcd.print(F(">> NO GPS SIGNAL <<"));
   } else {
     char sz[32];
-    sprintf(sz, "%02d:%02d:%02d:", d.year(), d.month(), d.day());
+    sprintf(sz, "%02d.%02d.%02d ", d.year(), d.month(), d.day());
     M5.Lcd.setTextColor(CYAN, BLACK);
     M5.Lcd.setCursor(6, 6);
     M5.Lcd.setTextSize(2);
