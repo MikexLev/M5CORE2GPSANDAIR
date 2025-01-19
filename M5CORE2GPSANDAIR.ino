@@ -230,6 +230,7 @@ void drawAverageGraph(float avgDose) {
 
 // Werteanzeige
 void displayValues(float doseRate, float averageDose) {
+  
   M5.Lcd.setTextSize(1);
   M5.Lcd.setCursor(225, 31);
   M5.Lcd.setTextColor(DARKCYAN, BLACK);
@@ -240,7 +241,7 @@ void displayValues(float doseRate, float averageDose) {
                                                                    : RED;
   M5.Lcd.setTextColor(rateColor, BLACK);
   M5.Lcd.printf("%.2f uSv/h", doseRate);
-
+  
   M5.Lcd.setCursor(225, 83);
   M5.Lcd.setTextColor(DARKCYAN, BLACK);
   M5.Lcd.print("AD:");
@@ -264,7 +265,8 @@ void loop() {
         M5.Lcd.sleep();             // Display ausschalten
         digitalWrite(TFT_BL, LOW);  // Hintergrundbeleuchtung aus
         displayOn = false;
-      } else {
+      } 
+      else {
         digitalWrite(TFT_BL, HIGH);  // Hintergrundbeleuchtung wieder einschalten
         M5.Lcd.wakeup();             // Display einschalten
         displayOn = true;
@@ -300,7 +302,7 @@ void loop() {
     drawRateGraph(doseRate);
     displayValues(doseRate, sumDose / countSamples);
   }
-  M5.update();
+  
 
   //GPS INI
   printInt(gps.satellites.value(), gps.satellites.isValid(), 5);
@@ -1070,6 +1072,7 @@ void loop() {
 }
 
 //LOOP END
+
 static void smartDelay(unsigned long ms) {
   unsigned long start = millis();
   do {
