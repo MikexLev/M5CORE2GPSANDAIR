@@ -1,4 +1,4 @@
-18.01.2025 Geigerzähler hinzugefügt. Code mit Chat GPT optimalisiert-
+18.01.2025 Geigerzähler an PIN 26 hinzugefügt. Code mit Chat GPT optimalisiert-
 
 07.05.2023 grundsätzlich funktioniert alles. Muss noch langfristig getestet werden.
 24.04.2023 Speichern von aktuellen position hinzugefügt. Anzeigen von zu letzt gespeicherten koordinaten beim einschalten hinzugefügt.
