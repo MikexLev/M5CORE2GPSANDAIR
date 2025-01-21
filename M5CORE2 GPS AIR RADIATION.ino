@@ -63,8 +63,7 @@ void IRAM_ATTR countPulse() {
 }
 float doseRate = 0.0;                   // Dosis in µSv/h
 float averageDose = 0.0;                // Durchschnittliche Dosis
-const float calibrationFactor = 100.0;  // Kalibrierung: CPM pro µSv/h
-
+const float calibrationFactor = 108.0;  // Kalibrierung: CPM pro µSv/h
 // Historie für Durchschnittswerte
 #define RATE_GRAPH_WIDTH 80
 #define AVG_GRAPH_WIDTH 80
@@ -290,10 +289,6 @@ void displayValues(float doseRate, float averageDose) {
   M5.Lcd.setTextColor(DARKCYAN, BLACK);
   M5.Lcd.print("DR:");
 
-  //uint16_t rateColor = (doseRate < 0.5) ? GREEN : (doseRate < 1.0) ? YELLOW
-   //                                             : (doseRate < 2.0) ? ORANGE
-   //                                                                : RED;
-  //M5.Lcd.setTextColor(rateColor, BLACK);
   M5.Lcd.setTextColor(CYAN, BLACK);
   M5.Lcd.printf("%.2f uSv/h", doseRate);
   
@@ -307,29 +302,40 @@ void displayValues(float doseRate, float averageDose) {
   M5.Lcd.setTextColor(avgColor, BLACK);
   M5.Lcd.printf("%.2f uSv/h", averageDose);
 }
+int calculateCET(TinyGPSDate &date, TinyGPSTime &time) {
+  int month = date.month();
+  int day = date.day();
 
+  // Wochentag berechnen (0 = Sonntag, 1 = Montag, ...)
+  int k = day;
+  int m = (month < 3) ? month + 12 : month;  // Januar und Februar auf 13 und 14 verschieben
+  int d = date.year() % 100;                // Letzte zwei Stellen des Jahres
+  int c = date.year() / 100;                // Hunderter des Jahres
+  int weekday = (k + (13 * (m + 1)) / 5 + d + (d / 4) + (c / 4) - (2 * c)) % 7;
+  weekday = (weekday + 7) % 7;  // Korrektur für negative Werte
+
+  // Sommerzeit von letztem Sonntag im März bis letztem Sonntag im Oktober
+  if (month > 3 && month < 10) {
+    return 2;  // Sommerzeit (UTC+2)
+  } else if (month == 3) {
+    int lastSunday = 31 - weekday;  // Letzter Sonntag im März
+    return (day >= lastSunday) ? 2 : 1;  // Sommerzeit ab letztem Sonntag
+  } else if (month == 10) {
+    int lastSunday = 31 - weekday;  // Letzter Sonntag im Oktober
+    return (day < lastSunday) ? 2 : 1;  // Winterzeit nach letztem Sonntag
+  } else {
+    return 1;  // Winterzeit (UTC+1)
+  }
+}
 void loop() {
 
   M5.update();  // Touch-Events aktualisieren
 // Prüfe, ob das Bitmap-Flag gesetzt wurde
-    //M5.Lcd.fillCircle(198, 32, 9, WHITE);
     M5.Lcd.fillRect(198, 25, 23, 23, BLACK); // Lösche alten Wert
     if (drawBitmapFlag) {      
         drawBitmapGeigerSignal(); // Zeichne das Bitmap
         drawBitmapFlag = false;  // Zurücksetzen des Flags
     }
-   /*Optional: Zeige Impulszähler auf dem Display an
-    static unsigned long lastUpdate = 0;
-    if (millis() - lastUpdate >= 1000) {
-        lastUpdate = millis();
-        //M5.Lcd.fillCircle(208, 113, 9, BLACK);
-        M5.Lcd.setTextSize(1);
-        M5.Lcd.setCursor(208, 113);
-        
-        //M5.Lcd.fillRect(10, 50, 200, 20, BLACK); // Lösche alten Wert
-        M5.Lcd.printf("%lu", pulseCount);
-    }
-  */
   
   if (M5.Touch.ispressed()) {                            // Prüfe, ob der Bildschirm berührt wird
     TouchPoint_t touchPoint = M5.Touch.getPressPoint();  // Hol die Berührungskoordinaten
@@ -378,7 +384,6 @@ void loop() {
 
   }
   
-
   //GPS INI
   printInt(gps.satellites.value(), gps.satellites.isValid(), 5);
   printFloat(gps.hdop.hdop(), gps.hdop.isValid(), 6, 1);
@@ -557,8 +562,6 @@ void loop() {
   M5.Lcd.fillCircle(160, 77, 47, BLACK);
 
   //SATELLITES DISPLAY
-
-  //M5.Lcd.drawCircle(160, 77, 47, 0x00AF);
   M5.Lcd.drawCircle(160, 77, 47, BLUE);
   M5.Lcd.drawCircle(160, 77, 16, MAROON);
   M5.Lcd.drawCircle(160, 77, 32, MAROON);
@@ -635,12 +638,6 @@ void loop() {
         oldY[i] = y;
         oldCircleSize[i] = circleSize;
 
-        // Zeige die Satellitennummer oder SNR
-       //**************************************************************************************************
-        //M5.Lcd.drawCircle(110, 113, 10, BLUE);
-        //M5.Lcd.drawCircle(208, 113, 10, BLUE);
-       //******************************************************************************************************** 
-        //M5.Lcd.drawCircle(110, 39, 10, BLUE);
         M5.Lcd.setTextSize(1);
         M5.Lcd.setCursor(104, 30);
         M5.Lcd.setTextColor(CYAN, BLACK);
@@ -796,44 +793,39 @@ void loop() {
     r = (43 * sin(pi - (2 * pi) / 12 * i)) + 160;
     M5.Lcd.drawLine(r, q, x, y, CYAN);
   }
+// CET- berechnen
+// Berechne CET-Offset
+int cetOffset = calculateCET(gps.date, gps.time);
+int cetHour = gps.time.hour() + cetOffset;
 
-  // CET- berechnen
-  if (gps.date.month() <= 3 && gps.date.month() >= 10)  // Winterzeit
-  {
-    gps.time.hour() + 1;
+if (cetHour >= 24) cetHour -= 24;  // Überlaufkorrektur
+if (cetHour < 0) cetHour += 24;   // Unterlaufkorrektur
 
-    y = (32 * cos(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 77;
-    x = (32 * sin(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 160;
+// Stundenzeiger zeichnen
+y = (32 * cos(pi - (2 * pi) / 60 * ((cetHour * 5) + gps.time.minute() / 12))) + 77;
+x = (32 * sin(pi - (2 * pi) / 60 * ((cetHour * 5) + gps.time.minute() / 12))) + 160;
 
-    q = (2 * cos(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 77;
-    r = (2 * sin(pi - (2 * pi) / 60 * ((gps.time.hour() * 5) + gps.time.minute() / 12))) + 160;
+q = (2 * cos(pi - (2 * pi) / 60 * ((cetHour * 5) + gps.time.minute() / 12))) + 77;
+r = (2 * sin(pi - (2 * pi) / 60 * ((cetHour * 5) + gps.time.minute() / 12))) + 160;
 
-    M5.Lcd.drawLine(r + 2, q + 2, x, y, CYAN);
-    M5.Lcd.drawLine(r - 2, q - 2, x, y, CYAN);
-  } else  // Sommerzeit
-  {
-    y = (32 * cos(pi - (2 * pi) / 60 * (((gps.time.hour() + 2) * 5) + gps.time.minute() / 12))) + 77;
-    x = (32 * sin(pi - (2 * pi) / 60 * (((gps.time.hour() + 2) * 5) + gps.time.minute() / 12))) + 160;
+M5.Lcd.drawLine(r + 2, q + 2, x, y, CYAN);
+M5.Lcd.drawLine(r - 2, q - 2, x, y, CYAN);
 
-    q = (2 * cos(pi - (2 * pi) / 60 * (((gps.time.hour() + 2) * 5) + gps.time.minute() / 12))) + 77;
-    r = (2 * sin(pi - (2 * pi) / 60 * (((gps.time.hour() + 2) * 5) + gps.time.minute() / 12))) + 160;
+// Minutenzeiger
+y = (42 * cos(pi - (2 * pi) / 60 * gps.time.minute())) + 77;
+x = (42 * sin(pi - (2 * pi) / 60 * gps.time.minute())) + 160;
+q = (2 * cos(pi - (2 * pi) / 60 * gps.time.minute())) + 77;
+r = (2 * sin(pi - (2 * pi) / 60 * gps.time.minute())) + 160;
 
-    M5.Lcd.drawLine(r + 2, q + 2, x, y, CYAN);
-    M5.Lcd.drawLine(r - 2, q - 2, x, y, CYAN);
-  }
+M5.Lcd.drawLine(r + 1, q + 1, x, y, CYAN);
+M5.Lcd.drawLine(r - 1, q - 1, x, y, CYAN);
 
-  y = (42 * cos(pi - (2 * pi) / 60 * gps.time.minute())) + 77;
-  x = (42 * sin(pi - (2 * pi) / 60 * gps.time.minute())) + 160;
-  q = (2 * cos(pi - (2 * pi) / 60 * gps.time.minute())) + 77;
-  r = (2 * sin(pi - (2 * pi) / 60 * gps.time.minute())) + 160;
-
-  M5.Lcd.drawLine(r + 1, q + 1, x, y, CYAN);
-  M5.Lcd.drawLine(r - 1, q - 1, x, y, CYAN);
-  y = (45 * cos(pi - (2 * pi) / 60 * gps.time.second())) + 77;
-  x = (45 * sin(pi - (2 * pi) / 60 * gps.time.second())) + 160;
-  M5.Lcd.drawLine(160, 76, x, y, RED);
-  M5.Lcd.fillCircle(160, 77, 5, MAROON);
-  M5.Lcd.fillCircle(160, 77, 3, BLACK);
+// Sekundenzeiger
+y = (45 * cos(pi - (2 * pi) / 60 * gps.time.second())) + 77;
+x = (45 * sin(pi - (2 * pi) / 60 * gps.time.second())) + 160;
+M5.Lcd.drawLine(160, 76, x, y, RED);
+M5.Lcd.fillCircle(160, 77, 5, MAROON);
+M5.Lcd.fillCircle(160, 77, 3, BLACK);
 
   //BME280 I2C MODULE
   bme.readSensor();
@@ -1092,12 +1084,9 @@ void loop() {
     M5.Lcd.print("---");
 
   } else if (TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) < 1000) {
-    //M5.Lcd.fillRoundRect(164, 217, 150, 14, 2, WHITE);//******************************************************************
     M5.Lcd.print(TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon), 0);
     M5.Lcd.print("m    ");
   } else {
-    //**************************************************************************************************************************
-    //M5.Lcd.fillRoundRect(164, 215, 146, 14, 2, BLACK);//*****************************************************************
     M5.Lcd.print(TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon) / 1000, 2);
     M5.Lcd.print("km  ");
   }
@@ -1151,7 +1140,6 @@ void loop() {
     M5.Lcd.print(" DESTINATION");
   }
 }
-
 //LOOP END
 
 static void smartDelay(unsigned long ms) {
@@ -1209,6 +1197,16 @@ static void printDateTime(TinyGPSDate &d, TinyGPSTime &t) {
       char sz[32];
       sprintf(sz, "%02d:%02d:%02d", t.hour(), t.minute(), t.second());
       M5.Lcd.print(sz);
+    // Berechne CET
+/*int cetOffset = calculateCET(d, t);
+int cetHour = t.hour() + cetOffset;
+if (cetHour >= 24) cetHour -= 24;  // Überlaufkorrektur
+if (cetHour < 0) cetHour += 24;   // Unterlaufkorrektur
+
+// Ausgabe der korrigierten Zeit
+sprintf(sz, "%02d:%02d:%02d", cetHour, t.minute(), t.second());
+M5.Lcd.print(sz);
+   */ 
     }
   }
   printInt(d.age(), d.isValid(), 5);
@@ -1218,3 +1216,4 @@ static void printStr(const char *str, int len) {
   for (int i = 0; i < len; ++i)
     Serial.print(i < slen ? str[i] : ' ');
 }
+
