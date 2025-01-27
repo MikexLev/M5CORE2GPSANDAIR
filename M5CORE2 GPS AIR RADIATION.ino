@@ -63,7 +63,7 @@ void IRAM_ATTR countPulse() {
 }
 float doseRate = 0.0;                   // Dosis in µSv/h
 float averageDose = 0.0;                // Durchschnittliche Dosis
-const float calibrationFactor = 108.0;  // Kalibrierung: CPM pro µSv/h
+const float calibrationFactor = 5.0;//108.0;  // Kalibrierung: CPM pro µSv/h
 // Historie für Durchschnittswerte
 #define RATE_GRAPH_WIDTH 80
 #define AVG_GRAPH_WIDTH 80
@@ -140,17 +140,14 @@ void checkForAlarms(float CO, float NH3, float NO2, float radiation) {
     M5.Lcd.setTextColor(RED, BLACK);
     M5.Lcd.setCursor(13, 79);
     M5.Lcd.print(" !!!DANGER!!!");
-    //M5.Spk.SpeakerOn();
-    //delay(500);
-    //M5.Spk.SpeakerOff();
     M5.Axp.SetVibration(true); // Vibrationsmotor einschalten
     M5.Axp.SetLed(true);
-    delay(100);
+    delay(10);
     M5.Axp.SetVibration(false); // Vibrationsmotor ausschalten
     M5.Axp.SetLed(false);
     M5.Axp.SetVibration(true); // Vibrationsmotor einschalten
     M5.Axp.SetLed(true);
-    delay(100);
+    delay(10);
     M5.Axp.SetVibration(false); // Vibrationsmotor ausschalten
     M5.Axp.SetLed(false);
     alarmTriggered = true;
@@ -165,12 +162,12 @@ void checkForAlarms(float CO, float NH3, float NO2, float radiation) {
     //M5.Spk.SpeakerOff();
     M5.Axp.SetVibration(true); // Vibrationsmotor einschalten
     M5.Axp.SetLed(true);
-    delay(200);
+    delay(10);
     M5.Axp.SetVibration(false); // Vibrationsmotor ausschalten
     M5.Axp.SetLed(false);
     M5.Axp.SetVibration(true); // Vibrationsmotor einschalten
     M5.Axp.SetLed(true);
-    delay(200);
+    delay(10);
     M5.Axp.SetVibration(false); // Vibrationsmotor ausschalten
     M5.Axp.SetLed(false);
     alarmTriggered = true;
@@ -180,17 +177,14 @@ void checkForAlarms(float CO, float NH3, float NO2, float radiation) {
     M5.Lcd.setTextColor(RED, BLACK);
     M5.Lcd.setCursor(13, 101);
     M5.Lcd.print(" !!!DANGER!!!");
-   //M5.Spk.SpeakerOn();
-    //delay(500);
-    //M5.Spk.SpeakerOff();
     M5.Axp.SetVibration(true); // Vibrationsmotor einschalten
     M5.Axp.SetLed(true);
-    delay(300);
+    delay(10);
     M5.Axp.SetVibration(false); // Vibrationsmotor ausschalten
     M5.Axp.SetLed(false);
     M5.Axp.SetVibration(true); // Vibrationsmotor einschalten
     M5.Axp.SetLed(true);
-    delay(300);
+    delay(10);
     M5.Axp.SetVibration(false); // Vibrationsmotor ausschalten
     M5.Axp.SetLed(false);
     alarmTriggered = true;
@@ -201,30 +195,25 @@ void checkForAlarms(float CO, float NH3, float NO2, float radiation) {
     M5.Lcd.setTextColor(RED, BLACK);
     M5.Lcd.setCursor(224, 31);
     M5.Lcd.print("!!! DANGER !!!");
-    //M5.Spk.SpeakerOn();
-    //delay(500);
-    //M5.Spk.SpeakerOff();
     M5.Axp.SetVibration(true); // Vibrationsmotor einschalten
     M5.Axp.SetLed(true);
-    delay(500);
+    delay(10);
     M5.Axp.SetVibration(false); // Vibrationsmotor ausschalten
     M5.Axp.SetLed(false);
     M5.Axp.SetVibration(true); // Vibrationsmotor einschalten
     M5.Axp.SetLed(true);
-    delay(500);
+    delay(10);
     M5.Axp.SetVibration(false); // Vibrationsmotor ausschalten
     M5.Axp.SetLed(false);
     
     alarmTriggered = true;
   }
-
   // Wenn kein Alarm ausgelöst wurde, entferne Warnungen vom Display
   //if (!alarmTriggered) {
    // M5.Lcd.fillRect(16, 79, 80, 40, BLACK); // Bereich für Gase leeren
    // M5.Lcd.fillRect(226, 31, 80, 20, BLACK); // Bereich für Strahlung leeren
  // }
 }
-//************************************************************************************
 
 // Speichert die x- und y-Koordinaten sowie die Kreisgröße der Satelliten für das Löschen alter Kreise
 int oldX[MAX_SATELLITES] = { 0 };
@@ -392,9 +381,8 @@ void displayValues(float doseRate, float averageDose) {
   M5.Lcd.setTextColor(DARKCYAN, BLACK);
   M5.Lcd.print("DR:");
 
-  M5.Lcd.setTextColor(CYAN, BLACK);
+  M5.Lcd.setTextColor(CYAN, BLACK); 
   M5.Lcd.printf("%.2f uSv/h", doseRate);
-  
   M5.Lcd.setCursor(225, 83);
   M5.Lcd.setTextColor(DARKCYAN, BLACK);
   M5.Lcd.print("AD:");
@@ -444,16 +432,12 @@ void loop() {
     TouchPoint_t touchPoint = M5.Touch.getPressPoint();  // Hol die Berührungskoordinaten
     // Bereich unten links (10x10 mm) zum Ein- und Ausschalten
     if (touchPoint.x >= 0 && touchPoint.x <= 100 && touchPoint.y >= 140 && touchPoint.y <= 240) {
-      if (displayOn) {
-        //*********************************************************************
-          //M5.Lcd.sleep();             // Display ausschalten
-        M5.Axp.SetLCDRSet(false);
+       if (displayOn) {
+          M5.Lcd.sleep();             // Display ausschalten
           displayOn = false;
       } 
       else {
-       //*************************************************************************
-          //M5.Lcd.wakeup();             // Display einschalten
-        M5.Axp.SetLCDRSet(true);
+          M5.Lcd.wakeup();             // Display einschalten
           displayOn = true;
       }
     }
@@ -491,8 +475,6 @@ void loop() {
 
   // Alarmprüfung
   checkForAlarms(CO, NH3, NO2, radiation);
-  //****************************************************
-  
   
   //GPS INI
   printInt(gps.satellites.value(), gps.satellites.isValid(), 5);
@@ -1309,16 +1291,6 @@ static void printDateTime(TinyGPSDate &d, TinyGPSTime &t) {
       char sz[32];
       sprintf(sz, "%02d:%02d:%02d", t.hour(), t.minute(), t.second());
       M5.Lcd.print(sz);
-    // Berechne CET
-/*int cetOffset = calculateCET(d, t);
-int cetHour = t.hour() + cetOffset;
-if (cetHour >= 24) cetHour -= 24;  // Überlaufkorrektur
-if (cetHour < 0) cetHour += 24;   // Unterlaufkorrektur
-
-// Ausgabe der korrigierten Zeit
-sprintf(sz, "%02d:%02d:%02d", cetHour, t.minute(), t.second());
-M5.Lcd.print(sz);
-   */ 
     }
   }
   printInt(d.age(), d.isValid(), 5);
@@ -1328,5 +1300,6 @@ static void printStr(const char *str, int len) {
   for (int i = 0; i < len; ++i)
     Serial.print(i < slen ? str[i] : ' ');
 }
+
 
 
