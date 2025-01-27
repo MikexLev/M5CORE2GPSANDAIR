@@ -445,12 +445,16 @@ void loop() {
     // Bereich unten links (10x10 mm) zum Ein- und Ausschalten
     if (touchPoint.x >= 0 && touchPoint.x <= 100 && touchPoint.y >= 140 && touchPoint.y <= 240) {
       if (displayOn) {
-        M5.Lcd.sleep();             // Display ausschalten
-        displayOn = false;
+        //*********************************************************************
+          //M5.Lcd.sleep();             // Display ausschalten
+        M5.Axp.SetLCDRSet(false);
+          displayOn = false;
       } 
       else {
-        M5.Lcd.wakeup();             // Display einschalten
-        displayOn = true;
+       //*************************************************************************
+          //M5.Lcd.wakeup();             // Display einschalten
+        M5.Axp.SetLCDRSet(true);
+          displayOn = true;
       }
     }
   }
