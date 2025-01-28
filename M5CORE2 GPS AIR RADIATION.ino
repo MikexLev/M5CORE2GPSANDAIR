@@ -63,7 +63,7 @@ void IRAM_ATTR countPulse() {
 }
 float doseRate = 0.0;                   // Dosis in µSv/h
 float averageDose = 0.0;                // Durchschnittliche Dosis
-const float calibrationFactor = 2.0;//108.0;  // Kalibrierung: CPM pro µSv/h
+const float calibrationFactor = 100.0;//108.0;  // Kalibrierung: CPM pro µSv/h
 // Historie für Durchschnittswerte
 #define RATE_GRAPH_WIDTH 80
 #define AVG_GRAPH_WIDTH 16
@@ -125,7 +125,7 @@ int sensorValue1 = 0;
 int sensorValue2 = 0;
 int sensorValue3 = 0;
 int sensorValue4 = 0;
-//****************************************
+
 // Schwellenwerte definieren
 const float CO_THRESHOLD = 30.0;     // CO: gefährlich ab 30 ppm
 const float NH3_THRESHOLD = 25.0;   // NH3: gefährlich ab 25 ppm
@@ -330,57 +330,52 @@ M5.Lcd.setTextSize(1);
         M5.Lcd.print("> DISPLAY OFF <");
 }
 
-// Zeichne den Liniengraphen (Rate)
-void drawRateGraph(float doseRate) {
-  int newY = 80 - (doseRate * 10);
-  newY = constrain(newY, 40, 80);
-  rateGraphBuffer[rateGraphIndex] = newY;
-  rateGraphIndex = (rateGraphIndex + 1) % RATE_GRAPH_WIDTH;
+// Funktion zur Berechnung eines Farbverlaufs von Rot (niedrig) nach Grün (hoch)
+uint16_t getGradientColor(float value, float minValue, float maxValue) {
+    // Normiere den Wert auf den Bereich [0, 1]
+    float normalized = (value - minValue) / (maxValue - minValue);
+    normalized = constrain(normalized, 0.0, 1.0);  // Begrenze auf [0, 1]
 
-  M5.Lcd.fillRect(223, 39, 83, 44, BLACK);
-  M5.Lcd.fillRect(303, 31, 5, 7, BLACK);
-  M5.Lcd.fillRect(303, 83, 5, 8, BLACK);
-  for (int i = 0; i < RATE_GRAPH_WIDTH -1; i++) {
-    int x1 = 226 + i;
-    int y1 = rateGraphBuffer[(rateGraphIndex + i) % RATE_GRAPH_WIDTH];
-    int x2 = 226 + (i + 1);
-    int y2 = rateGraphBuffer[(rateGraphIndex + i +1 ) % RATE_GRAPH_WIDTH];
+    // Umkehrung der Farben: Niedrige Werte = Rot, Hohe Werte = Grün
+    uint8_t red = 255 * (1.0 - normalized);  // Rot wird intensiver bei niedrigeren Werten
+    uint8_t green = 255 * normalized;        // Grün wird intensiver bei höheren Werten
+    uint8_t blue = 0;                        // Blau bleibt konstant (0)
 
-    uint16_t color = (doseRate < 0.5) ? GREEN : (doseRate < 1.0) ? YELLOW
-                                              : (doseRate < 2.0) ? ORANGE
-                                                                 : RED;
-    M5.Lcd.drawLine(x1, y1, x2, y2, color);
-  }
+    // Konvertiere RGB in 16-Bit-Farbe (565-Format)
+    return ((red & 0xF8) << 8) | ((green & 0xFC) << 3) | (blue >> 3);
 }
 
-/*// Zeichne das Säulendiagramm (Average)
-void drawAverageGraph(float avgDose) {
-  avgGraphBuffer[avgGraphIndex] = avgDose * 10;
-  avgGraphBuffer[avgGraphIndex] = constrain(avgGraphBuffer[avgGraphIndex], 0, 68);
-  avgGraphIndex = (avgGraphIndex + 1) % (AVG_GRAPH_WIDTH / 5);
-*/
+ void drawRateGraph(float doseRate) {
+    int newY = 80 - (doseRate * 10);  // Berechne neuen Y-Wert
+    newY = constrain(newY, 40, 80);  // Begrenze Y-Wert auf Diagrammbereich
+    rateGraphBuffer[rateGraphIndex] = newY;  // Speichere neuen Y-Wert im Puffer
+    rateGraphIndex = (rateGraphIndex + 1) % RATE_GRAPH_WIDTH;  // Zyklischer Puffer
+
+    // Lösche den Bereich für das Diagramm
+    M5.Lcd.fillRect(226, 31, 83, 60, BLACK);
+
+    // Zeichne das Diagramm mit Farbverlauf
+    for (int i = 0; i < RATE_GRAPH_WIDTH - 1; i++) {
+        int x1 = 226 + i;  // X-Position des ersten Punktes
+        int y1 = rateGraphBuffer[(rateGraphIndex + i) % RATE_GRAPH_WIDTH];  // Y-Wert des ersten Punktes
+        int x2 = 226 + (i + 1);  // X-Position des nächsten Punktes
+        int y2 = rateGraphBuffer[(rateGraphIndex + i + 1) % RATE_GRAPH_WIDTH];  // Y-Wert des nächsten Punktes
+
+        // Berechne den Farbverlauf basierend auf dem Y-Wert (40 = Grün, 80 = Rot)
+        uint16_t color = getGradientColor(y1, 40, 80);
+
+        // Zeichne die Linie mit dem berechneten Farbverlauf
+        M5.Lcd.drawLine(x1, y1, x2, y2, color);
+    }
+}
+ 
  void drawAverageGraph(float avgDose) {
     // Buffer aktualisieren: Durchschnittswerte für die letzten 60 Minuten in 16 Säulen
     avgGraphBuffer[avgGraphIndex] = avgDose * 10;  // Skaliere die Dosis (1 µSv/h = 10 Pixel)
     avgGraphBuffer[avgGraphIndex] = constrain(avgGraphBuffer[avgGraphIndex], 0, 68);  // Begrenze Höhe der Säule
     avgGraphIndex = (avgGraphIndex + 1) % AVG_GRAPH_WIDTH;  // Zyklischer Puffer für 16 Säulen 
-  
-  
-  
+   
   M5.Lcd.fillRect(224, 90, 83, 32, BLACK);
-  /*
-  for (int i = 0; i < AVG_GRAPH_WIDTH / 5; i++) {
-    int x = 227 + i * 5;
-    int height = avgGraphBuffer[(avgGraphIndex + i) % (AVG_GRAPH_WIDTH / 5)];
-    int y = 122 - height;
-
-    uint16_t color = (height / 10.0 < 0.5) ? GREEN : (height / 10.0 < 1.0) ? YELLOW
-                                                   : (height / 10.0 < 2.0) ? ORANGE
-                                                                           : RED;
-    M5.Lcd.fillRect(x, y, 4, height, color);
-  }
-}
-*/
 
    // Zeichne die Säulen mit Abstand von 5 Pixeln
     for (int i = 0; i < AVG_GRAPH_WIDTH; i++) {
@@ -494,13 +489,6 @@ void loop() {
     sumDose += doseRate;
     countSamples++;
 
-    /*if (countSamples == 80) {
-      float avgDose = sumDose / 80;
-      drawAverageGraph(avgDose);
-      sumDose = 0;
-      countSamples = 0;
-    }
-*/
  // Alle 3,75 Minuten (225 Sekunden) aktualisieren
 if (countSamples >= (225 / (1000 / 1000))) {
     float avgDose = sumDose / countSamples;
@@ -508,8 +496,7 @@ if (countSamples >= (225 / (1000 / 1000))) {
     sumDose = 0;
     countSamples = 0;
 }   
-    
-    
+     
     drawRateGraph(doseRate);
     displayValues(doseRate, sumDose / countSamples);
   }
@@ -1342,6 +1329,7 @@ static void printStr(const char *str, int len) {
   for (int i = 0; i < len; ++i)
     Serial.print(i < slen ? str[i] : ' ');
 }
+
 
 
 
