@@ -63,7 +63,7 @@ void IRAM_ATTR countPulse() {
 }
 float doseRate = 0.0;                   // Dosis in µSv/h
 float averageDose = 0.0;                // Durchschnittliche Dosis
-const float calibrationFactor = 100.0;//108.0;  // Kalibrierung: CPM pro µSv/h
+const float calibrationFactor = 10.0;//108.0;  // Kalibrierung: CPM pro µSv/h
 // Historie für Durchschnittswerte
 #define RATE_GRAPH_WIDTH 80
 #define AVG_GRAPH_WIDTH 16
@@ -315,8 +315,8 @@ void setup() {
   M5.Lcd.drawRoundRect(8, 28, 90, 96, 4, BLUE);
   M5.Lcd.drawRoundRect(222, 28, 88, 96, 4, BLUE);
   M5.Lcd.drawRoundRect(8, 136, 90, 96, 4, BLUE);
-  M5.Lcd.fillRect(224, 40, 85, 51, BLACK);//
-  M5.Lcd.fillRect(224, 91, 85, 31, BLACK);//
+  //M5.Lcd.fillRect(224, 40, 85, 51, WHITE);//
+  //M5.Lcd.fillRect(224, 91, 85, 31, WHITE);//
 
 M5.Lcd.setTextSize(1);
         M5.Lcd.setTextColor(CYAN, BLACK);
@@ -968,28 +968,28 @@ M5.Lcd.fillCircle(160, 77, 3, BLACK);
   M5.Lcd.setTextColor(CYAN, BLACK);
   M5.Lcd.print(bme.getHumidity(), 0);
   M5.Lcd.println(" %  ");
-  M5.Lcd.drawRoundRect(12, 53, 82, 12, 2, 0x00AF);
-  M5.Lcd.drawRoundRect(12, 65, 82, 12, 2, 0x00AF);
+  M5.Lcd.drawRoundRect(12, 53, 82, 11, 2, 0x00AF);
+  M5.Lcd.drawRoundRect(12, 64, 82, 12, 2, 0x00AF);
   if ((bme.getPressure_HP() / 100) <= 970) {
-    M5.Lcd.setCursor(28, 68);
-    M5.Lcd.print(" STORM   ");
+    M5.Lcd.setCursor(16, 67);
+    M5.Lcd.print(">> STORM <<");
   } else if ((bme.getPressure_HP() / 100) <= 1001) {
     if (bme.getTemperature_C() > 1) {
-      M5.Lcd.setCursor(28, 68);
-      M5.Lcd.print("  RAIN  ");
+      M5.Lcd.setCursor(16, 67);
+      M5.Lcd.print(" >> RAIN <<");
     } else {
-      M5.Lcd.setCursor(28, 68);
-      M5.Lcd.print("   SNOW  ");
+      M5.Lcd.setCursor(16, 67);
+      M5.Lcd.print(" >> SNOW <<");
     }
   } else if ((bme.getPressure_HP() / 100) <= 1010) {
-    M5.Lcd.setCursor(28, 68);
-    M5.Lcd.print("OVERCAST");
+    M5.Lcd.setCursor(16, 67);
+    M5.Lcd.print("> OVERCAST <");
   } else if ((bme.getPressure_HP() / 100) <= 1020) {
-    M5.Lcd.setCursor(28, 68);
-    M5.Lcd.print(" CLOUDY  ");
+    M5.Lcd.setCursor(16, 67);
+    M5.Lcd.print(">> CLOUDY <<");
   } else if ((bme.getPressure_HP() / 100) <= 1040) {
-    M5.Lcd.setCursor(28, 68);
-    M5.Lcd.print("  CLEAR   ");
+    M5.Lcd.setCursor(16, 67);
+    M5.Lcd.print(">> CLEAR <<");
   }
   M5.Lcd.setCursor(16, 55);
   M5.Lcd.setTextColor(DARKCYAN, BLACK);
