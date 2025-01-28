@@ -63,10 +63,10 @@ void IRAM_ATTR countPulse() {
 }
 float doseRate = 0.0;                   // Dosis in µSv/h
 float averageDose = 0.0;                // Durchschnittliche Dosis
-const float calibrationFactor = 5.0;//108.0;  // Kalibrierung: CPM pro µSv/h
+const float calibrationFactor = 2.0;//108.0;  // Kalibrierung: CPM pro µSv/h
 // Historie für Durchschnittswerte
 #define RATE_GRAPH_WIDTH 80
-#define AVG_GRAPH_WIDTH 80
+#define AVG_GRAPH_WIDTH 16
 float avgGraphBuffer[AVG_GRAPH_WIDTH] = { 0 };
 int avgGraphIndex = 0;
 int rateGraphBuffer[RATE_GRAPH_WIDTH] = { 0 };
@@ -131,7 +131,7 @@ const float CO_THRESHOLD = 30.0;     // CO: gefährlich ab 30 ppm
 const float NH3_THRESHOLD = 25.0;   // NH3: gefährlich ab 25 ppm
 const float NO2_THRESHOLD = 10.0;   // NO2: gefährlich ab 10 ppm
 const float EMF_THRESHOLD = 10.0;   // EMF: gefährlich ab 10 
-const float RADIATION_THRESHOLD = 1.0; // Strahlung: gefährlich ab 1.0 µSv/h
+const float RADIATION_THRESHOLD = 2.0; // Strahlung: gefährlich ab 1.0 µSv/h
 void checkForAlarms(float CO, float NH3, float NO2, float radiation) {
   bool alarmTriggered = false; // Flag, um zu prüfen, ob ein Alarm ausgelöst wurde
 
@@ -353,14 +353,22 @@ void drawRateGraph(float doseRate) {
   }
 }
 
-// Zeichne das Säulendiagramm (Average)
+/*// Zeichne das Säulendiagramm (Average)
 void drawAverageGraph(float avgDose) {
   avgGraphBuffer[avgGraphIndex] = avgDose * 10;
   avgGraphBuffer[avgGraphIndex] = constrain(avgGraphBuffer[avgGraphIndex], 0, 68);
   avgGraphIndex = (avgGraphIndex + 1) % (AVG_GRAPH_WIDTH / 5);
-
-  M5.Lcd.fillRect(224, 90, 83, 32, BLACK);
+*/
+ void drawAverageGraph(float avgDose) {
+    // Buffer aktualisieren: Durchschnittswerte für die letzten 60 Minuten in 16 Säulen
+    avgGraphBuffer[avgGraphIndex] = avgDose * 10;  // Skaliere die Dosis (1 µSv/h = 10 Pixel)
+    avgGraphBuffer[avgGraphIndex] = constrain(avgGraphBuffer[avgGraphIndex], 0, 68);  // Begrenze Höhe der Säule
+    avgGraphIndex = (avgGraphIndex + 1) % AVG_GRAPH_WIDTH;  // Zyklischer Puffer für 16 Säulen 
   
+  
+  
+  M5.Lcd.fillRect(224, 90, 83, 32, BLACK);
+  /*
   for (int i = 0; i < AVG_GRAPH_WIDTH / 5; i++) {
     int x = 227 + i * 5;
     int height = avgGraphBuffer[(avgGraphIndex + i) % (AVG_GRAPH_WIDTH / 5)];
@@ -371,6 +379,31 @@ void drawAverageGraph(float avgDose) {
                                                                            : RED;
     M5.Lcd.fillRect(x, y, 4, height, color);
   }
+}
+*/
+
+   // Zeichne die Säulen mit Abstand von 5 Pixeln
+    for (int i = 0; i < AVG_GRAPH_WIDTH; i++) {
+        int x = 227 + i * 5;  // X-Position für jede Säule (4 Pixel Breite + 1 Pixel Abstand)
+        int height = avgGraphBuffer[(avgGraphIndex + i) % AVG_GRAPH_WIDTH];
+        int y = 122 - height;  // Y-Position basierend auf der Höhe der Säule
+
+        // Wähle Farbe basierend auf Dosiswert
+        uint16_t color;
+        float dose = height / 10.0;  // Rückrechnen auf µSv/h
+        if (dose < 0.5) {
+            color = GREEN;
+        } else if (dose < 1.0) {
+            color = YELLOW;
+        } else if (dose < 2.0) {
+            color = ORANGE;
+        } else {
+            color = RED;
+        }
+
+        // Zeichne die Säule
+        M5.Lcd.fillRect(x, y, 4, height, color);
+    }
 }
 
 // Werteanzeige
@@ -456,18 +489,27 @@ void loop() {
 
     doseRate = count / calibrationFactor;
 
-    static float sumDose = 0;
-    static int countSamples = 0;
+    static float sumDose = 0;  // Summe der Dosiswerte
+    static int countSamples = 0;  // Anzahl der Samples pro Säule
     sumDose += doseRate;
     countSamples++;
 
-    if (countSamples == 80) {
+    /*if (countSamples == 80) {
       float avgDose = sumDose / 80;
       drawAverageGraph(avgDose);
       sumDose = 0;
       countSamples = 0;
     }
-
+*/
+ // Alle 3,75 Minuten (225 Sekunden) aktualisieren
+if (countSamples >= (225 / (1000 / 1000))) {
+    float avgDose = sumDose / countSamples;
+    drawAverageGraph(avgDose);  // Aktualisiere das Diagramm
+    sumDose = 0;
+    countSamples = 0;
+}   
+    
+    
     drawRateGraph(doseRate);
     displayValues(doseRate, sumDose / countSamples);
   }
