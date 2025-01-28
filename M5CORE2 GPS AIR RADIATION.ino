@@ -15,6 +15,10 @@ static const uint32_t GPSBaud = 9600;
 
 const int geigerPin = 26;               // GPIO für Geigerzähler
 volatile unsigned long pulseCount = 0;  // Impulszähler
+float doseRate = 0.0;                   // Dosis in µSv/h
+float averageDose = 0.0;                // Durchschnittliche Dosis
+const float calibrationFactor = 100.0;  //108.0;  // Kalibrierung: CPM pro µSv/h
+
 volatile bool drawBitmapFlag = false;   // Flag, um Bitmap zu zeichnen
 // Bitmap-Daten
 const unsigned short pngegg[484] PROGMEM = {
@@ -61,19 +65,30 @@ void IRAM_ATTR countPulse() {
     pulseCount++;          // Impuls zählen
     drawBitmapFlag = true; // Bitmap-Zeichen-Flag setzen
 }
-float doseRate = 0.0;                   // Dosis in µSv/h
-float averageDose = 0.0;                // Durchschnittliche Dosis
-const float calibrationFactor = 5.0;//108.0;  // Kalibrierung: CPM pro µSv/h
 // Historie für Durchschnittswerte
 #define RATE_GRAPH_WIDTH 80
-#define AVG_GRAPH_WIDTH 80
-float avgGraphBuffer[AVG_GRAPH_WIDTH] = { 0 };
-int avgGraphIndex = 0;
+//#define AVG_GRAPH_WIDTH 80
+//float avgGraphBuffer[AVG_GRAPH_WIDTH] = { 0 };
+//int avgGraphIndex = 0;
+#define AVG_GRAPH_WIDTH 16  // 16 Säulen für das Diagramm
+float avgGraphBuffer[AVG_GRAPH_WIDTH] = { 0 };  // Puffer für das Säulendiagramm
+int avgGraphIndex = 0;                          // Index des Puffers
+unsigned long lastAverageUpdate = 0;  // Zeitpunkt der letzten Aktualisierung
+float sumDose = 0;                    // Summe der Dosisraten für 3,75 Minuten
+int countSamples = 0;                 // Anzahl der Messungen in 3,75 Minuten
+const int intervalSeconds = 225;      // Intervall: 3,75 Minuten in Sekunden
+
 int rateGraphBuffer[RATE_GRAPH_WIDTH] = { 0 };
 int rateGraphIndex = 0;
 const int numHistory = 80;              // Historie für 60 Sekunden
 float doseHistory[numHistory] = { 0 };  // Speicherung der letzten Werte
 int historyIndex = 0;                   // Index für den Historienpuffer
+
+// Interrupt-Funktion: Zähle Geigerzähler-Impulse und setze das Flag
+void IRAM_ATTR countPulse() {
+    pulseCount++;          // Impuls zählen
+    drawBitmapFlag = true; // Bitmap-Zeichen-Flag setzen
+}
 
 unsigned long lastCount = 0;  // Letzte Impulszählung
 unsigned long lastTime = 0;   // Letzte Aktualisierungszeit
@@ -125,7 +140,7 @@ int sensorValue1 = 0;
 int sensorValue2 = 0;
 int sensorValue3 = 0;
 int sensorValue4 = 0;
-//****************************************
+
 // Schwellenwerte definieren
 const float CO_THRESHOLD = 30.0;     // CO: gefährlich ab 30 ppm
 const float NH3_THRESHOLD = 25.0;   // NH3: gefährlich ab 25 ppm
@@ -222,8 +237,7 @@ int oldCircleSize[MAX_SATELLITES] = { 0 };
 
 bool displayOn = true;  // Status des Displays
 
-void setup() {
-  
+void setup() {  
   M5.begin();
   pinMode(geigerPin, INPUT);                                              // Setze PIN 26 als Eingang
   attachInterrupt(digitalPinToInterrupt(geigerPin), countPulse, RISING);  // Rufe countPulse() bei steigender Flanke auf
@@ -352,7 +366,7 @@ void drawRateGraph(float doseRate) {
     M5.Lcd.drawLine(x1, y1, x2, y2, color);
   }
 }
-
+/*//***********************************************************************
 // Zeichne das Säulendiagramm (Average)
 void drawAverageGraph(float avgDose) {
   avgGraphBuffer[avgGraphIndex] = avgDose * 10;
@@ -360,7 +374,6 @@ void drawAverageGraph(float avgDose) {
   avgGraphIndex = (avgGraphIndex + 1) % (AVG_GRAPH_WIDTH / 5);
 
   M5.Lcd.fillRect(224, 90, 83, 32, BLACK);
-  
   for (int i = 0; i < AVG_GRAPH_WIDTH / 5; i++) {
     int x = 227 + i * 5;
     int height = avgGraphBuffer[(avgGraphIndex + i) % (AVG_GRAPH_WIDTH / 5)];
@@ -372,10 +385,34 @@ void drawAverageGraph(float avgDose) {
     M5.Lcd.fillRect(x, y, 4, height, color);
   }
 }
+*///**********************************************************************
+// Zeichne das Säulendiagramm (Average)
+void drawAverageGraph() {
+  // Lösche den Bereich für das Diagramm
+  //M5.Lcd.fillRect(226, 91, 84, 31, BLACK);
+M5.Lcd.fillRect(224, 90, 83, 32, BLACK);
+  // Zeichne die Säulen
+  for (int i = 0; i < AVG_GRAPH_WIDTH; i++) {
+    int x = 227 + i * 5;  // X-Position für jede Säule (5 Pixel Abstand)
+    int height = avgGraphBuffer[(avgGraphIndex + i) % AVG_GRAPH_WIDTH];  // Säulenhöhe berechnen
+    int y = 122 - height;  // Y-Position berechnen (unten)
+
+    // Wähle die Farbe basierend auf dem Dosiswert
+    uint16_t color = (height / 10.0 < 0.5) ? GREEN : (height / 10.0 < 1.0) ? YELLOW
+                                                   : (height / 10.0 < 2.0) ? ORANGE
+                                                                           : RED;
+
+    // Zeichne die Säule
+    M5.Lcd.fillRect(x, y, 4, height, color);
+  }
+}
+
+
+
+
 
 // Werteanzeige
-void displayValues(float doseRate, float averageDose) {
-  
+void displayValues(float doseRate, float averageDose) {  
   M5.Lcd.setTextSize(1);
   M5.Lcd.setCursor(225, 31);
   M5.Lcd.setTextColor(DARKCYAN, BLACK);
@@ -461,13 +498,31 @@ void loop() {
     sumDose += doseRate;
     countSamples++;
 
-    if (countSamples == 80) {
+   /* if (countSamples == 80) {
       float avgDose = sumDose / 80;
       drawAverageGraph(avgDose);
       sumDose = 0;
       countSamples = 0;
-    }
+    */
+   // Durchschnittswerte alle 3,75 Minuten berechnen
+if (now - lastAverageUpdate >= intervalSeconds * 1000) {  // 3,75 Minuten vergangen
+  lastAverageUpdate = now;
 
+  // Durchschnitt berechnen und in den Puffer schreiben
+  float avgDose = sumDose / countSamples;  // Durchschnitt berechnen
+  avgGraphBuffer[avgGraphIndex] = avgDose * 10;  // Umrechnung auf Pixelhöhe
+  avgGraphBuffer[avgGraphIndex] = constrain(avgGraphBuffer[avgGraphIndex], 0, 68);  // Begrenze Höhe
+  avgGraphIndex = (avgGraphIndex + 1) % AVG_GRAPH_WIDTH;  // Weiter zum nächsten Index (zyklischer Puffer)
+
+  // Puffer zurücksetzen für die nächste 3,75-Minuten-Periode
+  sumDose = 0;
+  countSamples = 0;
+
+  drawAverageGraph();  // Aktualisiere das Säulendiagramm
+  
+  }
+    sumDose += doseRate;  // Summe der Dosiswerte aufaddieren
+    countSamples++;
     drawRateGraph(doseRate);
     displayValues(doseRate, sumDose / countSamples);
   }
