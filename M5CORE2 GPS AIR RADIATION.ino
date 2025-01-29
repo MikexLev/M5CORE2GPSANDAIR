@@ -63,7 +63,7 @@ void IRAM_ATTR countPulse() {
 }
 float doseRate = 0.0;                   // Dosis in µSv/h
 float averageDose = 0.0;                // Durchschnittliche Dosis
-const float calibrationFactor = 10.0;//108.0;  // Kalibrierung: CPM pro µSv/h
+const float calibrationFactor = 100.0;//108.0;  // Kalibrierung: CPM pro µSv/h
 // Historie für Durchschnittswerte
 #define RATE_GRAPH_WIDTH 80
 #define AVG_GRAPH_WIDTH 16
@@ -131,7 +131,7 @@ const float CO_THRESHOLD = 30.0;     // CO: gefährlich ab 30 ppm
 const float NH3_THRESHOLD = 25.0;   // NH3: gefährlich ab 25 ppm
 const float NO2_THRESHOLD = 10.0;   // NO2: gefährlich ab 10 ppm
 const float EMF_THRESHOLD = 10.0;   // EMF: gefährlich ab 10 
-const float RADIATION_THRESHOLD = 2.0; // Strahlung: gefährlich ab 1.0 µSv/h
+const float RADIATION_THRESHOLD = 10.0; // Strahlung: gefährlich ab 1.0 µSv/h
 void checkForAlarms(float CO, float NH3, float NO2, float radiation) {
   bool alarmTriggered = false; // Flag, um zu prüfen, ob ein Alarm ausgelöst wurde
 
@@ -346,42 +346,69 @@ uint16_t getGradientColor(float value, float minValue, float maxValue) {
 }
 
  void drawRateGraph(float doseRate) {
-    int newY = 80 - (doseRate * 10);  // Berechne neuen Y-Wert
-    newY = constrain(newY, 40, 80);  // Begrenze Y-Wert auf Diagrammbereich
-    rateGraphBuffer[rateGraphIndex] = newY;  // Speichere neuen Y-Wert im Puffer
-    rateGraphIndex = (rateGraphIndex + 1) % RATE_GRAPH_WIDTH;  // Zyklischer Puffer
+    static float sumDoseRate = 0;
+    static int countSamples = 0;
+
+    sumDoseRate += doseRate;
+    countSamples++;
+
+    if (countSamples >= 7) {  // Alle 7 Sekunden einen neuen Punkt setzen
+        int newY = 80 - ((sumDoseRate / countSamples) * 10);  // Berechne neuen Y-Wert
+        newY = constrain(newY, 40, 80);  // Begrenze Y-Wert auf Diagrammbereich
+        rateGraphBuffer[rateGraphIndex] = newY;  // Speichere neuen Y-Wert
+        rateGraphIndex = (rateGraphIndex + 1) % RATE_GRAPH_WIDTH;  // Zyklischer Puffer
+
+        sumDoseRate = 0;
+        countSamples = 0;
+    }
 
     // Lösche den Bereich für das Diagramm
-    M5.Lcd.fillRect(226, 31, 83, 60, BLACK);
+    M5.Lcd.fillRect(223, 31, 86, 60, BLACK);  // Startpunkt jetzt bei 223
+
+    // Zeichne **horizontale Skalenlinien** für Dosiswerte
+    for (int y = 40; y <= 120; y += 10) {  // Hauptlinien alle 10 µSv/h
+        M5.Lcd.drawFastHLine(223, y, 85, 0x0320);
+    }
+
+    for (int y = 45; y <= 75; y += 10) {  // Hilfslinien alle 5 µSv/h (gepunktet)
+        for (int x = 223; x < 309; x += 4) {
+            M5.Lcd.drawPixel(x, y, 0x0320);
+        }
+    }
+
+    // Zeichne **vertikale Linien** für Zeitachse jetzt alle 8 Pixel
+    for (int x = 223; x <= 309; x +=14) {
+        M5.Lcd.drawFastVLine(x, 40, 40, 0x0320);
+    }
 
     // Zeichne das Diagramm mit Farbverlauf
     for (int i = 0; i < RATE_GRAPH_WIDTH - 1; i++) {
-        int x1 = 226 + i;  // X-Position des ersten Punktes
-        int y1 = rateGraphBuffer[(rateGraphIndex + i) % RATE_GRAPH_WIDTH];  // Y-Wert des ersten Punktes
-        int x2 = 226 + (i + 1);  // X-Position des nächsten Punktes
-        int y2 = rateGraphBuffer[(rateGraphIndex + i + 1) % RATE_GRAPH_WIDTH];  // Y-Wert des nächsten Punktes
+        int x1 = 227 + i;  // Verschoben nach links
+        int y1 = rateGraphBuffer[(rateGraphIndex + i) % RATE_GRAPH_WIDTH];
+        int x2 = 227 + (i + 1);
+        int y2 = rateGraphBuffer[(rateGraphIndex + i + 1) % RATE_GRAPH_WIDTH];
 
-        // Berechne den Farbverlauf basierend auf dem Y-Wert (40 = Grün, 80 = Rot)
+        // Berechne den Farbverlauf basierend auf dem Y-Wert (unten = Rot, oben = Grün)
         uint16_t color = getGradientColor(y1, 40, 80);
 
         // Zeichne die Linie mit dem berechneten Farbverlauf
         M5.Lcd.drawLine(x1, y1, x2, y2, color);
     }
 }
- 
+
  void drawAverageGraph(float avgDose) {
     // Buffer aktualisieren: Durchschnittswerte für die letzten 60 Minuten in 16 Säulen
     avgGraphBuffer[avgGraphIndex] = avgDose * 10;  // Skaliere die Dosis (1 µSv/h = 10 Pixel)
     avgGraphBuffer[avgGraphIndex] = constrain(avgGraphBuffer[avgGraphIndex], 0, 68);  // Begrenze Höhe der Säule
     avgGraphIndex = (avgGraphIndex + 1) % AVG_GRAPH_WIDTH;  // Zyklischer Puffer für 16 Säulen 
    
-  M5.Lcd.fillRect(224, 90, 83, 32, BLACK);
+  M5.Lcd.fillRect(224, 90, 82, 32, BLACK);
 
    // Zeichne die Säulen mit Abstand von 5 Pixeln
     for (int i = 0; i < AVG_GRAPH_WIDTH; i++) {
         int x = 227 + i * 5;  // X-Position für jede Säule (4 Pixel Breite + 1 Pixel Abstand)
         int height = avgGraphBuffer[(avgGraphIndex + i) % AVG_GRAPH_WIDTH];
-        int y = 122 - height;  // Y-Position basierend auf der Höhe der Säule
+        int y = 120 - height;  // Y-Position basierend auf der Höhe der Säule
 
         // Wähle Farbe basierend auf Dosiswert
         uint16_t color;
@@ -411,7 +438,7 @@ void displayValues(float doseRate, float averageDose) {
 
   M5.Lcd.setTextColor(CYAN, BLACK); 
   M5.Lcd.printf("%.2f uSv/h", doseRate);
-  M5.Lcd.setCursor(225, 83);
+  M5.Lcd.setCursor(225, 82);
   M5.Lcd.setTextColor(DARKCYAN, BLACK);
   M5.Lcd.print("AD:");
 
@@ -490,16 +517,19 @@ void loop() {
     countSamples++;
 
  // Alle 3,75 Minuten (225 Sekunden) aktualisieren
-if (countSamples >= (225 / (1000 / 1000))) {
-    float avgDose = sumDose / countSamples;
-    drawAverageGraph(avgDose);  // Aktualisiere das Diagramm
-    sumDose = 0;
-    countSamples = 0;
-}   
-     
+if (countSamples >= 225) {  // Alle 3,75 Minuten
+            float avgDose = sumDose / countSamples;
+            drawAverageGraph(avgDose);
+            sumDose = 0;
+            countSamples = 0;
+        }     
     drawRateGraph(doseRate);
-    displayValues(doseRate, sumDose / countSamples);
-  }
+   if (countSamples > 0) {
+            displayValues(doseRate, sumDose / countSamples);
+        } else {
+            displayValues(doseRate, 0);
+        }
+    }
   float radiation = doseRate;   // Strahlung in µSv/h
 
   // Alarmprüfung
@@ -685,13 +715,13 @@ if (countSamples >= (225 / (1000 / 1000))) {
   M5.Lcd.fillCircle(160, 77, 47, BLACK);
 
   //SATELLITES DISPLAY
-  M5.Lcd.drawCircle(160, 77, 47, BLUE);
-  M5.Lcd.drawCircle(160, 77, 16, MAROON);
-  M5.Lcd.drawCircle(160, 77, 32, MAROON);
-  M5.Lcd.drawFastHLine(113, 77, 95, MAROON);
-  M5.Lcd.drawFastVLine(160, 29, 95, MAROON);
-  M5.Lcd.drawLine(127, 44, 192, 109, MAROON);
-  M5.Lcd.drawLine(127, 109, 192, 44, MAROON);
+  M5.Lcd.drawCircle(160, 77, 47, DARKGREEN);
+  M5.Lcd.drawCircle(160, 77, 16, 0x0320);
+  M5.Lcd.drawCircle(160, 77, 32, 0x0320);
+  M5.Lcd.drawFastHLine(113, 77, 95, 0x0320);
+  M5.Lcd.drawFastVLine(160, 29, 95, 0x0320);
+  M5.Lcd.drawLine(127, 44, 192, 109, 0x0320);
+  M5.Lcd.drawLine(127, 109, 192, 44, 0x0320);
 
   if (!GPSnotReady) {
     int centerX = 160, centerY = 75;
@@ -914,7 +944,7 @@ if (countSamples >= (225 / (1000 / 1000))) {
     x = (47 * sin(pi - (2 * pi) / 12 * i)) + 160;
     q = (43 * cos(pi - (2 * pi) / 12 * i)) + 77;
     r = (43 * sin(pi - (2 * pi) / 12 * i)) + 160;
-    M5.Lcd.drawLine(r, q, x, y, CYAN);
+    M5.Lcd.drawLine(r, q, x, y, GREEN);
   }
 // CET- berechnen
 // Berechne CET-Offset
@@ -1329,6 +1359,7 @@ static void printStr(const char *str, int len) {
   for (int i = 0; i < len; ++i)
     Serial.print(i < slen ? str[i] : ' ');
 }
+
 
 
 
