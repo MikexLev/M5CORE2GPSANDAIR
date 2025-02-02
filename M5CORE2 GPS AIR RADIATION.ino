@@ -7,9 +7,9 @@
 
 BME280_I2C bme(0x76);  //i2C PA_SDA 32,PA_SCL 33
 TinyGPSPlus gps;
+
 double homeLat = 0.0;
 double homeLon = 0.0;
-
 static const int RXPin = 13, TXPin = 14;
 static const uint32_t GPSBaud = 9600;
 
@@ -63,10 +63,10 @@ void IRAM_ATTR countPulse() {
 }
 float doseRate = 0.0;                   // Dosis in µSv/h
 float averageDose = 0.0;                // Durchschnittliche Dosis
-const float calibrationFactor = 100.0;//108.0;  // Kalibrierung: CPM pro µSv/h
+const float calibrationFactor = 6.0;//108.0;  // Kalibrierung: CPM pro µSv/h
 // Historie für Durchschnittswerte
-#define RATE_GRAPH_WIDTH 80
-#define AVG_GRAPH_WIDTH 16
+#define RATE_GRAPH_WIDTH 83
+#define AVG_GRAPH_WIDTH 17
 float avgGraphBuffer[AVG_GRAPH_WIDTH] = { 0 };
 int avgGraphIndex = 0;
 int rateGraphBuffer[RATE_GRAPH_WIDTH] = { 0 };
@@ -94,6 +94,69 @@ int q = 0;
 int r = 0;
 int i = 0;
 int j = 0;
+
+// Speichert die vorherigen Zeigerpositionen
+int prevHourX, prevHourY, prevHourQ, prevHourR;
+int prevMinuteX, prevMinuteY, prevMinuteQ, prevMinuteR;
+int prevSecondX, prevSecondY;
+int previousSecond = -1;  // Startwert für Sekundenzeiger
+
+void drawClockHands(int cetHour, int minute, int second) {
+    float pi = 3.14159265359;
+
+    // **Stundenzeiger**
+    int hourY = (32 * cos(pi - (2 * pi) / 60 * ((cetHour * 5) + minute / 12))) + 77;
+    int hourX = (32 * sin(pi - (2 * pi) / 60 * ((cetHour * 5) + minute / 12))) + 160;
+    int hourQ = (2 * cos(pi - (2 * pi) / 60 * ((cetHour * 5) + minute / 12))) + 77;
+    int hourR = (2 * sin(pi - (2 * pi) / 60 * ((cetHour * 5) + minute / 12))) + 160;
+
+    // **Minutenzeiger**
+    int minuteY = (42 * cos(pi - (2 * pi) / 60 * minute)) + 77;
+    int minuteX = (42 * sin(pi - (2 * pi) / 60 * minute)) + 160;
+    int minuteQ = (2 * cos(pi - (2 * pi) / 60 * minute)) + 77;
+    int minuteR = (2 * sin(pi - (2 * pi) / 60 * minute)) + 160;
+
+    // **Sekundenzeiger**
+    int secondY = (45 * cos(pi - (2 * pi) / 60 * second)) + 77;
+    int secondX = (45 * sin(pi - (2 * pi) / 60 * second)) + 160;
+
+    // **Lösche vorherige Zeiger gezielt**
+    if (previousSecond >= 0) {
+        M5.Lcd.drawLine(160, 76, prevSecondX, prevSecondY, BLACK);  // Sekundenzeiger
+    }
+    if (minute != prevMinuteY) {
+        M5.Lcd.drawLine(prevMinuteR + 1, prevMinuteQ + 1, prevMinuteX, prevMinuteY, BLACK);
+        M5.Lcd.drawLine(prevMinuteR - 1, prevMinuteQ - 1, prevMinuteX, prevMinuteY, BLACK);
+    }
+    if (cetHour != prevHourY) {
+        M5.Lcd.drawLine(prevHourR + 2, prevHourQ + 2, prevHourX, prevHourY, BLACK);
+        M5.Lcd.drawLine(prevHourR - 2, prevHourQ - 2, prevHourX, prevHourY, BLACK);
+    }
+
+    // **Neue Zeiger zeichnen**
+    M5.Lcd.drawLine(hourR + 2, hourQ + 2, hourX, hourY, CYAN);  // Stundenzeiger
+    M5.Lcd.drawLine(hourR - 2, hourQ - 2, hourX, hourY, CYAN);
+
+    M5.Lcd.drawLine(minuteR + 1, minuteQ + 1, minuteX, minuteY, CYAN);  // Minutenzeiger
+    M5.Lcd.drawLine(minuteR - 1, minuteQ - 1, minuteX, minuteY, CYAN);
+
+    M5.Lcd.drawLine(160, 76, secondX, secondY, RED);  // Sekundenzeiger
+
+    // **Neue Positionen speichern**
+    prevHourX = hourX;
+    prevHourY = hourY;
+    prevHourQ = hourQ;
+    prevHourR = hourR;
+
+    prevMinuteX = minuteX;
+    prevMinuteY = minuteY;
+    prevMinuteQ = minuteQ;
+    prevMinuteR = minuteR;
+
+    prevSecondX = secondX;
+    prevSecondY = secondY;
+    previousSecond = second;
+}
 
 bool GPSnotReady = false;
 bool sensorConnected;
@@ -132,6 +195,7 @@ const float NH3_THRESHOLD = 25.0;   // NH3: gefährlich ab 25 ppm
 const float NO2_THRESHOLD = 10.0;   // NO2: gefährlich ab 10 ppm
 const float EMF_THRESHOLD = 10.0;   // EMF: gefährlich ab 10 
 const float RADIATION_THRESHOLD = 10.0; // Strahlung: gefährlich ab 1.0 µSv/h
+
 void checkForAlarms(float CO, float NH3, float NO2, float radiation) {
   bool alarmTriggered = false; // Flag, um zu prüfen, ob ein Alarm ausgelöst wurde
 
@@ -208,11 +272,6 @@ void checkForAlarms(float CO, float NH3, float NO2, float radiation) {
     
     alarmTriggered = true;
   }
-  // Wenn kein Alarm ausgelöst wurde, entferne Warnungen vom Display
-  //if (!alarmTriggered) {
-   // M5.Lcd.fillRect(16, 79, 80, 40, BLACK); // Bereich für Gase leeren
-   // M5.Lcd.fillRect(226, 31, 80, 20, BLACK); // Bereich für Strahlung leeren
- // }
 }
 
 // Speichert die x- und y-Koordinaten sowie die Kreisgröße der Satelliten für das Löschen alter Kreise
@@ -262,7 +321,7 @@ void setup() {
       pngDrawn = true;
     } else {  // Else draw the PNG
       M5.update();
-      M5.Lcd.drawPngFile(SD, "/radar7.png", 0, 0);
+      M5.Lcd.drawPngFile(SD, "/radar1.png", 0, 0);
 
       File myFile = SD.open("/home_coordinates.txt", FILE_READ);
       if (myFile) {
@@ -282,17 +341,19 @@ void setup() {
 
       M5.Lcd.setTextColor(CYAN);
       M5.Lcd.setTextSize(2);
-      M5.Lcd.setCursor(60, 150);
-      M5.Lcd.print("SAVED COORDINATES");
+      M5.Lcd.setCursor(140, 58);
+      M5.Lcd.print("COORDINATES");
       M5.Lcd.setTextSize(2);
-      M5.Lcd.setCursor(0, 180);
-      M5.Lcd.print("LATT: N");
+      M5.Lcd.setCursor(124, 79);
+      //M5.Lcd.print("LATT: N");
+      M5.Lcd.print("N");
       M5.Lcd.setTextSize(1);
       M5.Lcd.print("\xF7 ");
       M5.Lcd.setTextSize(2);
       M5.Lcd.print(homeLat, 6);
-      M5.Lcd.setCursor(0, 210);
-      M5.Lcd.print("LONG: E");
+      M5.Lcd.setCursor(124, 96);
+      //M5.Lcd.print("LONG: E");
+      M5.Lcd.print("E");
       M5.Lcd.setTextSize(1);
       M5.Lcd.print("\xF7 ");
       M5.Lcd.setTextSize(2);
@@ -309,14 +370,11 @@ void setup() {
   //GRAPHIC
   M5.Lcd.fillScreen(BLACK);
   M5.Lcd.drawRoundRect(0, 0, 320, 240, 8, CYAN);
-  //M5.Lcd.drawRoundRect(4, 24, 310, 104, 6, 0x00AF);
   M5.Lcd.drawRoundRect(4, 24, 310, 104, 6, CYAN);
   M5.Lcd.drawRoundRect(4, 132, 310, 102, 6, CYAN);
   M5.Lcd.drawRoundRect(8, 28, 90, 96, 4, BLUE);
   M5.Lcd.drawRoundRect(222, 28, 88, 96, 4, BLUE);
   M5.Lcd.drawRoundRect(8, 136, 90, 96, 4, BLUE);
-  //M5.Lcd.fillRect(224, 40, 85, 51, WHITE);//
-  //M5.Lcd.fillRect(224, 91, 85, 31, WHITE);//
 
 M5.Lcd.setTextSize(1);
         M5.Lcd.setTextColor(CYAN, BLACK);
@@ -329,7 +387,6 @@ M5.Lcd.setTextSize(1);
         M5.Lcd.setCursor(10, 127);
         M5.Lcd.print("> DISPLAY OFF <");
 }
-
 // Funktion zur Berechnung eines Farbverlaufs von Rot (niedrig) nach Grün (hoch)
 uint16_t getGradientColor(float value, float minValue, float maxValue) {
     // Normiere den Wert auf den Bereich [0, 1]
@@ -383,9 +440,9 @@ uint16_t getGradientColor(float value, float minValue, float maxValue) {
 
     // Zeichne das Diagramm mit Farbverlauf
     for (int i = 0; i < RATE_GRAPH_WIDTH - 1; i++) {
-        int x1 = 227 + i;  // Verschoben nach links
+        int x1 = 224 + i;  // Verschoben nach links
         int y1 = rateGraphBuffer[(rateGraphIndex + i) % RATE_GRAPH_WIDTH];
-        int x2 = 227 + (i + 1);
+        int x2 = 224 + (i + 1);
         int y2 = rateGraphBuffer[(rateGraphIndex + i + 1) % RATE_GRAPH_WIDTH];
 
         // Berechne den Farbverlauf basierend auf dem Y-Wert (unten = Rot, oben = Grün)
@@ -401,12 +458,12 @@ uint16_t getGradientColor(float value, float minValue, float maxValue) {
     avgGraphBuffer[avgGraphIndex] = avgDose * 10;  // Skaliere die Dosis (1 µSv/h = 10 Pixel)
     avgGraphBuffer[avgGraphIndex] = constrain(avgGraphBuffer[avgGraphIndex], 0, 68);  // Begrenze Höhe der Säule
     avgGraphIndex = (avgGraphIndex + 1) % AVG_GRAPH_WIDTH;  // Zyklischer Puffer für 16 Säulen 
-   
-  M5.Lcd.fillRect(224, 90, 82, 32, BLACK);
+
+M5.Lcd.fillRect(224, 90, 84, 33, BLACK);
 
    // Zeichne die Säulen mit Abstand von 5 Pixeln
     for (int i = 0; i < AVG_GRAPH_WIDTH; i++) {
-        int x = 227 + i * 5;  // X-Position für jede Säule (4 Pixel Breite + 1 Pixel Abstand)
+        int x = 224 + i * 5;  // X-Position für jede Säule (4 Pixel Breite + 1 Pixel Abstand)
         int height = avgGraphBuffer[(avgGraphIndex + i) % AVG_GRAPH_WIDTH];
         int y = 120 - height;  // Y-Position basierend auf der Höhe der Säule
 
@@ -422,7 +479,6 @@ uint16_t getGradientColor(float value, float minValue, float maxValue) {
         } else {
             color = RED;
         }
-
         // Zeichne die Säule
         M5.Lcd.fillRect(x, y, 4, height, color);
     }
@@ -473,6 +529,7 @@ int calculateCET(TinyGPSDate &date, TinyGPSTime &time) {
     return 1;  // Winterzeit (UTC+1)
   }
 }
+
 void loop() {
 
   M5.update();  // Touch-Events aktualisieren
@@ -712,17 +769,25 @@ if (countSamples >= 225) {  // Alle 3,75 Minuten
   printInt(gps.sentencesWithFix(), true, 10);
   printInt(gps.failedChecksum(), true, 9);
   smartDelay(930);
-  M5.Lcd.fillCircle(160, 77, 47, BLACK);
-
-  //SATELLITES DISPLAY
-  M5.Lcd.drawCircle(160, 77, 47, DARKGREEN);
-  M5.Lcd.drawCircle(160, 77, 16, 0x0320);
-  M5.Lcd.drawCircle(160, 77, 32, 0x0320);
-  M5.Lcd.drawFastHLine(113, 77, 95, 0x0320);
-  M5.Lcd.drawFastVLine(160, 29, 95, 0x0320);
-  M5.Lcd.drawLine(127, 44, 192, 109, 0x0320);
-  M5.Lcd.drawLine(127, 109, 192, 44, 0x0320);
-
+ M5.Lcd.drawPngFile(SD, "/radar6.png", 114, 30);
+  /*M5.Lcd.drawCircle(160, 77, 47, GREEN);
+  M5.Lcd.drawCircle(160, 77, 16, GREEN);
+  M5.Lcd.drawCircle(160, 77, 32, GREEN);
+  M5.Lcd.drawFastHLine(113, 77, 95, GREEN);
+  M5.Lcd.drawFastVLine(160, 30, 95, GREEN);
+  M5.Lcd.drawLine(127, 44, 192, 109, GREEN);
+  M5.Lcd.drawLine(127, 109, 192, 44, GREEN);
+ */
+ //Zifferblatt mit Stundenmarkierungen**
+    for (int i = 0; i < 12; i++) {
+        int y = (47 * cos(PI - (2 * PI) / 12 * i)) + 76;
+        int x = (47 * sin(PI - (2 * PI) / 12 * i)) + 160;
+        int q = (43 * cos(PI - (2 * PI) / 12 * i)) + 76;
+        int r = (43 * sin(PI - (2 * PI) / 12 * i)) + 160;
+        M5.Lcd.drawLine(r, q, x, y, GREEN);  // Zeichnet die 12 Stundenstriche
+    }
+ 
+ //SATELLITES DISPLAY
   if (!GPSnotReady) {
     int centerX = 160, centerY = 75;
     float rad_fac = 3.14159265359 / 180;
@@ -783,6 +848,7 @@ if (countSamples >= 225) {  // Alle 3,75 Minuten
           M5.Lcd.drawCircle(oldX[i], oldY[i], oldCircleSize[i], BLACK);  // Hintergrundfarbe
         }
 
+
         // Zeichne den neuen Kreis
         M5.Lcd.drawCircle(x, y, circleSize, circleColor);
 
@@ -791,6 +857,7 @@ if (countSamples >= 225) {  // Alle 3,75 Minuten
         oldY[i] = y;
         oldCircleSize[i] = circleSize;
 
+   
         M5.Lcd.setTextSize(1);
         M5.Lcd.setCursor(104, 30);
         M5.Lcd.setTextColor(CYAN, BLACK);
@@ -833,6 +900,7 @@ if (countSamples >= 225) {  // Alle 3,75 Minuten
     M5.Lcd.fillTriangle(53, 184, 53, 218, 48, 190, DARKGREEN);
     M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 190, GREEN);
     M5.Lcd.fillTriangle(19, 184, 53, 184, 48, 178, DARKGREEN);
+    
     M5.Lcd.setTextSize(1);
     M5.Lcd.setTextColor(YELLOW, BLACK);
 
@@ -939,14 +1007,6 @@ if (countSamples >= 225) {  // Alle 3,75 Minuten
   }
 
   //CLOCK FACE
-  for (int i = 0; i < 12; i++) {
-    y = (47 * cos(pi - (2 * pi) / 12 * i)) + 77;
-    x = (47 * sin(pi - (2 * pi) / 12 * i)) + 160;
-    q = (43 * cos(pi - (2 * pi) / 12 * i)) + 77;
-    r = (43 * sin(pi - (2 * pi) / 12 * i)) + 160;
-    M5.Lcd.drawLine(r, q, x, y, GREEN);
-  }
-// CET- berechnen
 // Berechne CET-Offset
 int cetOffset = calculateCET(gps.date, gps.time);
 int cetHour = gps.time.hour() + cetOffset;
@@ -954,32 +1014,8 @@ int cetHour = gps.time.hour() + cetOffset;
 if (cetHour >= 24) cetHour -= 24;  // Überlaufkorrektur
 if (cetHour < 0) cetHour += 24;   // Unterlaufkorrektur
 
-// Stundenzeiger zeichnen
-y = (32 * cos(pi - (2 * pi) / 60 * ((cetHour * 5) + gps.time.minute() / 12))) + 77;
-x = (32 * sin(pi - (2 * pi) / 60 * ((cetHour * 5) + gps.time.minute() / 12))) + 160;
-
-q = (2 * cos(pi - (2 * pi) / 60 * ((cetHour * 5) + gps.time.minute() / 12))) + 77;
-r = (2 * sin(pi - (2 * pi) / 60 * ((cetHour * 5) + gps.time.minute() / 12))) + 160;
-
-M5.Lcd.drawLine(r + 2, q + 2, x, y, CYAN);
-M5.Lcd.drawLine(r - 2, q - 2, x, y, CYAN);
-
-// Minutenzeiger
-y = (42 * cos(pi - (2 * pi) / 60 * gps.time.minute())) + 77;
-x = (42 * sin(pi - (2 * pi) / 60 * gps.time.minute())) + 160;
-q = (2 * cos(pi - (2 * pi) / 60 * gps.time.minute())) + 77;
-r = (2 * sin(pi - (2 * pi) / 60 * gps.time.minute())) + 160;
-
-M5.Lcd.drawLine(r + 1, q + 1, x, y, CYAN);
-M5.Lcd.drawLine(r - 1, q - 1, x, y, CYAN);
-
-// Sekundenzeiger
-y = (45 * cos(pi - (2 * pi) / 60 * gps.time.second())) + 77;
-x = (45 * sin(pi - (2 * pi) / 60 * gps.time.second())) + 160;
-M5.Lcd.drawLine(160, 76, x, y, RED);
-M5.Lcd.fillCircle(160, 77, 5, MAROON);
-M5.Lcd.fillCircle(160, 77, 3, BLACK);
-
+  drawClockHands(cetHour, gps.time.minute(), gps.time.second());
+      M5.Lcd.fillCircle(160, 77, 4, GREEN);
   //BME280 I2C MODULE
   bme.readSensor();
   M5.Lcd.setTextSize(1);
@@ -1038,8 +1074,7 @@ int sensorValue1 = (analogRead(sensorPin1));
   float NH3 = (sensorValue2) / 10;  //ammonia
   float NO2 = (sensorValue3) / 10;  //nitrogen dioxide*/
   float EMF = (sensorValue4) / 10;  //electromagnetic field
-  //M5.Lcd.fillRoundRect(223, 29, 88, 94, 3, BLACK);
-  //M5.Lcd.fillRoundRect(13, 78, 80, 9, 2, BLACK);
+
   if (CO > 3800) {
     M5.Lcd.drawRoundRect(12, 77, 82, 11, 2, RED);
     M5.Lcd.setCursor(16, 79);
