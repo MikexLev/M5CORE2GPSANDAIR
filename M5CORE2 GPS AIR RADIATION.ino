@@ -4,14 +4,16 @@
 #include <Wire.h>
 #include <cactus_io_BME280_I2C.h>
 #include <MiCS6814-I2C.h>
-
+#include "CONTF___12pt7b.h"
+#include "SFChromeFendersCondensed16pt7b.h"
+#include "cities.h"
 BME280_I2C bme(0x76);  //i2C PA_SDA 32,PA_SCL 33
 TinyGPSPlus gps;
 
 double homeLat = 0.0;
 double homeLon = 0.0;
 static const int RXPin = 13, TXPin = 14;
-static const uint32_t GPSBaud = 9600;
+static const uint32_t GPSBaud = 19200;
 
 const int geigerPin = 26;               // GPIO für Geigerzähler
 volatile unsigned long pulseCount = 0;  // Impulszähler
@@ -63,6 +65,7 @@ void IRAM_ATTR countPulse() {
 }
 float doseRate = 0.0;                   // Dosis in µSv/h
 float averageDose = 0.0;                // Durchschnittliche Dosis
+
 const float calibrationFactor = 6.0;//108.0;  // Kalibrierung: CPM pro µSv/h
 // Historie für Durchschnittswerte
 #define RATE_GRAPH_WIDTH 83
@@ -86,6 +89,30 @@ float e = 0;
 
 const float rad_fac = 0.017453292;
 const float pi = 3.1415926536;
+  String nearestCity = "";   // Speichert den Stadtnamen
+  String nearestCountry = ""; // Speichert das Land
+float distance(float lat1, float lon1, float lat2, float lon2) {
+    float dlat = radians(lat2 - lat1);
+    float dlon = radians(lon2 - lon1);
+    float a = sin(dlat / 2) * sin(dlat / 2) +
+              cos(radians(lat1)) * cos(radians(lat2)) * 
+              sin(dlon / 2) * sin(dlon / 2);
+    float c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return 6371.0 * c;  // Entfernung in km
+}
+#define NUM_CITIES (sizeof(cities) / sizeof(cities[0]))  // Falls cities[] ein Array ist
+void findNearestCity(float lat, float lon, String &city, String &country) {
+    float minDistance = 9999999;
+
+     for (int i = 0; i < NUM_CITIES; i++) {
+        float d = distance(lat, lon, cities[i].lat, cities[i].lon);
+        if (d < minDistance) {
+            minDistance = d;
+            city = cities[i].name;
+            country = cities[i].country;
+        }
+    }
+}
 
 int seconds = 0;
 int x = 0;
@@ -254,6 +281,7 @@ void checkForAlarms(float CO, float NH3, float NO2, float radiation) {
     alarmTriggered = true;
   }
 
+   
    // Strahlungswarnung
   if (radiation > RADIATION_THRESHOLD) {
     M5.Lcd.setTextColor(RED, BLACK);
@@ -315,13 +343,15 @@ void setup() {
   pinMode(36, INPUT);
   pinMode(27, INPUT);
   Serial.println("Starte GPS...");
+
   bool pngDrawn = false;         // set this variable to 'false' to ensure that the PNG has not yet been drawn
+  
   while (!pngDrawn) {            // Loop that keeps running until the display is tapped
     if (M5.Touch.ispressed()) {  // If the display was typed, set pngDrawn to 'true'
       pngDrawn = true;
     } else {  // Else draw the PNG
       M5.update();
-      M5.Lcd.drawPngFile(SD, "/radar1.png", 0, 0);
+      M5.Lcd.drawPngFile(SD, "/radar1.png", 0, 40);
 
       File myFile = SD.open("/home_coordinates.txt", FILE_READ);
       if (myFile) {
@@ -337,27 +367,40 @@ void setup() {
       } else {
         Serial.println("Datei '/home_coordinates.txt' nicht gefunden!");
       }
-      delay(100);  // Verhindert übermäßiges Zeichnen
+         
+     //Finde nächste Stadt anhand der gespeicherten Position
+     findNearestCity(homeLat, homeLon, nearestCity, nearestCountry); 
 
-      M5.Lcd.setTextColor(CYAN);
-      M5.Lcd.setTextSize(2);
-      M5.Lcd.setCursor(140, 58);
-      M5.Lcd.print("COORDINATES");
-      M5.Lcd.setTextSize(2);
-      M5.Lcd.setCursor(124, 79);
-      //M5.Lcd.print("LATT: N");
-      M5.Lcd.print("N");
-      M5.Lcd.setTextSize(1);
-      M5.Lcd.print("\xF7 ");
-      M5.Lcd.setTextSize(2);
+    M5.Lcd.drawPngFile(SD, "/GARPAX.png", 250, 0);
+   M5.Lcd.setFreeFont(&CONTF___12pt7b);
+      M5.Lcd.setTextColor(DARKCYAN,BLACK);
+      //M5.Lcd.setTextSize(1);
+      M5.Lcd.setCursor(10, 40);
+      M5.Lcd.print("MULITISENS-GARPAX");
+      M5.Lcd.setTextColor(CYAN,BLACK);
+      M5.Lcd.setCursor(100, 80);
+      M5.Lcd.print("SAVED COORDINATES");
+      M5.Lcd.setFreeFont(&SFChromeFendersCondensed16pt7b);
+      //M5.Lcd.setFreeFont(&CONTF___12pt7b);
+      M5.Lcd.setCursor(133, 164);
+      M5.Lcd.setTextColor(GREEN, BLACK);
+      M5.Lcd.print(nearestCity);
+      //M5.Lcd.setFreeFont(&CONTF___12pt7b);
+      M5.Lcd.setCursor(160, 130);
+      //M5.Lcd.setTextColor(ORANGE, BLACK);
+      M5.Lcd.print(nearestCountry);
+      M5.Lcd.setFreeFont(&CONTF___12pt7b);
+      //M5.Lcd.setTextColor(CYAN,BLACK);
+      //M5.Lcd.setTextColor(ORANGE, BLACK);
+      M5.Lcd.setCursor(120, 205);
+      M5.Lcd.print("LATT: N° ");
+      //M5.Lcd.print("\xF7 ");
       M5.Lcd.print(homeLat, 6);
-      M5.Lcd.setCursor(124, 96);
-      //M5.Lcd.print("LONG: E");
-      M5.Lcd.print("E");
-      M5.Lcd.setTextSize(1);
-      M5.Lcd.print("\xF7 ");
-      M5.Lcd.setTextSize(2);
+      M5.Lcd.setCursor(120, 228);
+      M5.Lcd.print("LONG: E° ");
+      //M5.Lcd.print("\xF7 ");
       M5.Lcd.print(homeLon, 6);
+    
     }
   }
   for (int i = 0; i < 4; ++i) {
@@ -375,8 +418,8 @@ void setup() {
   M5.Lcd.drawRoundRect(8, 28, 90, 96, 4, BLUE);
   M5.Lcd.drawRoundRect(222, 28, 88, 96, 4, BLUE);
   M5.Lcd.drawRoundRect(8, 136, 90, 96, 4, BLUE);
-
-M5.Lcd.setTextSize(1);
+  M5.Lcd.setTextFont(1);
+  M5.Lcd.setTextSize(1);
         M5.Lcd.setTextColor(CYAN, BLACK);
         M5.Lcd.setCursor(21, 233);
         M5.Lcd.print("> HOME POS <");
@@ -384,8 +427,8 @@ M5.Lcd.setTextSize(1);
         M5.Lcd.print("> CURRENT POS <");
         M5.Lcd.setCursor(230, 233);
         M5.Lcd.print("> SVALBARD <");
-        M5.Lcd.setCursor(10, 127);
-        M5.Lcd.print("> DISPLAY OFF <");
+        //M5.Lcd.setCursor(8, 127);
+        //M5.Lcd.print("> DISPLAY OFF <");
 }
 // Funktion zur Berechnung eines Farbverlaufs von Rot (niedrig) nach Grün (hoch)
 uint16_t getGradientColor(float value, float minValue, float maxValue) {
@@ -417,6 +460,7 @@ uint16_t getGradientColor(float value, float minValue, float maxValue) {
 
         sumDoseRate = 0;
         countSamples = 0;
+ 
     }
 
     // Lösche den Bereich für das Diagramm
@@ -491,13 +535,18 @@ void displayValues(float doseRate, float averageDose) {
   M5.Lcd.setCursor(225, 31);
   M5.Lcd.setTextColor(DARKCYAN, BLACK);
   M5.Lcd.print("DR:");
-
+   if (doseRate > 99) {
+    doseRate = 99;
+}
   M5.Lcd.setTextColor(CYAN, BLACK); 
   M5.Lcd.printf("%.2f uSv/h", doseRate);
+  
   M5.Lcd.setCursor(225, 82);
   M5.Lcd.setTextColor(DARKCYAN, BLACK);
   M5.Lcd.print("AD:");
-
+   if (averageDose > 99) {
+    averageDose = 99;
+}
   uint16_t avgColor = (averageDose < 0.5) ? GREEN : (averageDose < 1.0) ? YELLOW
                                                   : (averageDose < 2.0) ? ORANGE
                                                                         : RED;
@@ -769,15 +818,15 @@ if (countSamples >= 225) {  // Alle 3,75 Minuten
   printInt(gps.sentencesWithFix(), true, 10);
   printInt(gps.failedChecksum(), true, 9);
   smartDelay(930);
- M5.Lcd.drawPngFile(SD, "/radar6.png", 114, 30);
-  /*M5.Lcd.drawCircle(160, 77, 47, GREEN);
-  M5.Lcd.drawCircle(160, 77, 16, GREEN);
-  M5.Lcd.drawCircle(160, 77, 32, GREEN);
-  M5.Lcd.drawFastHLine(113, 77, 95, GREEN);
-  M5.Lcd.drawFastVLine(160, 30, 95, GREEN);
-  M5.Lcd.drawLine(127, 44, 192, 109, GREEN);
-  M5.Lcd.drawLine(127, 109, 192, 44, GREEN);
- */
+ //M5.Lcd.drawPngFile(SD, "/radar6.png", 114, 30);
+  M5.Lcd.drawCircle(160, 76, 47, GREEN);
+  M5.Lcd.drawCircle(160, 76, 16, GREEN);
+  M5.Lcd.drawCircle(160, 76, 32, GREEN);
+  M5.Lcd.drawFastHLine(113, 76, 95, GREEN);
+  M5.Lcd.drawFastVLine(160, 30, 94, GREEN);
+  M5.Lcd.drawLine(127, 44, 192, 109, DARKGREEN);
+  M5.Lcd.drawLine(127, 109, 192, 44, DARKGREEN);
+ 
  //Zifferblatt mit Stundenmarkierungen**
     for (int i = 0; i < 12; i++) {
         int y = (47 * cos(PI - (2 * PI) / 12 * i)) + 76;
@@ -1327,6 +1376,25 @@ int sensorValue1 = (analogRead(sensorPin1));
     M5.Lcd.setTextColor(GREEN, BLACK);
     M5.Lcd.print(" DESTINATION");
   }
+float currentLat = gps.location.lat();
+float currentLon = gps.location.lng();
+
+if (currentLat != 0.0 && currentLon != 0.0) {  // Nur wenn GPS gültige Werte liefert
+    String city, country;
+    findNearestCity(currentLat, currentLon, city, country);  // Ruft Stadt + Land ab
+    M5.Lcd.setCursor(10, 127);
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.setTextColor(CYAN, BLACK);
+    M5.Lcd.print("> ");
+    M5.Lcd.setTextColor(YELLOW, BLACK);
+    M5.Lcd.print(city);  // Stadt anzeigen
+    M5.Lcd.setTextColor(CYAN, BLACK);
+    M5.Lcd.print(" <> ");
+    M5.Lcd.setTextColor(ORANGE, BLACK);
+    M5.Lcd.print(country);  // Land anzeigen
+    M5.Lcd.setTextColor(CYAN, BLACK);
+    M5.Lcd.print(" <");
+}
 }
 //LOOP END
 
@@ -1394,7 +1462,6 @@ static void printStr(const char *str, int len) {
   for (int i = 0; i < len; ++i)
     Serial.print(i < slen ? str[i] : ' ');
 }
-
 
 
 
